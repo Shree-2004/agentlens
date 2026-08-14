@@ -1,0 +1,47 @@
+{
+  "trace_path": "sample_traces/timezone_assumption.json",
+  "n_runs": 5,
+  "runs": [
+    {
+      "run": 1,
+      "critical_step": 0,
+      "category": "stale_fact",
+      "confidence": "high",
+      "summary": "The agent made an unverified assumption about the user's timezone, scheduled a reminder based on it, and then failed to correct the schedule even after retrieving the user's actual timezone."
+    },
+    {
+      "run": 2,
+      "critical_step": 0,
+      "category": "contradicted_assumption",
+      "confidence": "high",
+      "summary": "The agent made an initial assumption about the user's timezone, then later retrieved the correct timezone but failed to reconcile the contradiction and reschedule the reminder."
+    },
+    {
+      "run": 3,
+      "critical_step": 0,
+      "category": "contradicted_assumption",
+      "confidence": "high",
+      "summary": "The agent made an incorrect assumption about the user's timezone in step [0], which led to scheduling the reminder at the wrong local time, and failed to correct this oversight even after retrieving the user's actual timezone in step [4]."
+    },
+    {
+      "run": 4,
+      "critical_step": 0,
+      "category": "contradicted_assumption",
+      "confidence": "high",
+      "summary": "The agent made an assumption about the user's timezone, which was later contradicted by a tool call, but the agent failed to acknowledge or act on this new information, leading to an incorrect schedule."
+    },
+    {
+      "run": 5,
+      "critical_step": 0,
+      "category": "contradicted_assumption",
+      "confidence": "high",
+      "summary": "The agent made an initial assumption about the user's timezone, scheduled the reminder based on it, then retrieved the correct timezone but failed to acknowledge or act on the contradiction, leading to an incorrect final answer."
+    }
+  ],
+  "step_distribution": {
+    "0": 5
+  },
+  "majority_step": 0,
+  "agreement_rate": 1.0,
+  "all_agree": true
+}
