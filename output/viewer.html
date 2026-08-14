@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AgentLens — Trace Diagnosis</title>
+<style>
+  :root {
+    --bg: #f7f7f8;
+    --panel: #ffffff;
+    --border: #e2e2e6;
+    --text: #1a1a1e;
+    --text-dim: #6b6b73;
+    --ok: #3a7d44;
+    --ok-bg: #eaf5ec;
+    --tainted: #9a6b00;
+    --tainted-bg: #fbf1dd;
+    --critical: #b3261e;
+    --critical-bg: #fbe9e7;
+    --accent: #4956e3;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17181c;
+      --panel: #202127;
+      --border: #33343b;
+      --text: #e8e8ea;
+      --text-dim: #97979f;
+      --ok: #6fcf7c;
+      --ok-bg: #1c2d1f;
+      --tainted: #e0b03a;
+      --tainted-bg: #33290f;
+      --critical: #ff6b60;
+      --critical-bg: #3a1c1a;
+      --accent: #8891f2;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17181c;
+    --panel: #202127;
+    --border: #33343b;
+    --text: #e8e8ea;
+    --text-dim: #97979f;
+    --ok: #6fcf7c;
+    --ok-bg: #1c2d1f;
+    --tainted: #e0b03a;
+    --tainted-bg: #33290f;
+    --critical: #ff6b60;
+    --critical-bg: #3a1c1a;
+    --accent: #8891f2;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    padding: 2rem 1.25rem 4rem;
+  }
+  .wrap { max-width: 780px; margin: 0 auto; }
+
+  header h1 { font-size: 1.3rem; margin: 0 0 0.15rem; }
+  header .task { color: var(--text-dim); font-size: 0.92rem; margin: 0 0 1.5rem; }
+
+  .summary-card {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    border-radius: 10px;
+    padding: 1rem 1.15rem;
+    margin-bottom: 1.75rem;
+  }
+  .summary-card.no-failure { border-color: var(--ok); }
+  .summary-card.has-failure { border-color: var(--critical); }
+  .summary-card .label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-dim);
+    margin-bottom: 0.35rem;
+  }
+  .summary-card .headline { font-size: 1rem; font-weight: 600; margin-bottom: 0.4rem; }
+  .summary-card .meta { font-size: 0.85rem; color: var(--text-dim); }
+  .badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.12rem 0.5rem;
+    border-radius: 999px;
+    margin-right: 0.4rem;
+  }
+  .badge.high { background: var(--critical-bg); color: var(--critical); }
+  .badge.medium { background: var(--tainted-bg); color: var(--tainted); }
+  .badge.low { background: var(--border); color: var(--text-dim); }
+  .badge.rule { background: var(--border); color: var(--text); }
+  .badge.judge { background: rgba(73,86,227,0.14); color: var(--accent); }
+
+  .timeline { position: relative; padding-left: 2rem; }
+  .timeline::before {
+    content: "";
+    position: absolute;
+    left: 0.6rem;
+    top: 0.4rem;
+    bottom: 0.4rem;
+    width: 2px;
+    background: var(--border);
+  }
+
+  .step {
+    position: relative;
+    padding: 0.7rem 0.9rem;
+    margin-bottom: 0.55rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+  }
+  .step::before {
+    content: "";
+    position: absolute;
+    left: -1.65rem;
+    top: 1rem;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+    border: 2px solid var(--bg);
+  }
+  .step.ok::before { background: var(--ok); }
+  .step.tainted { background: var(--tainted-bg); border-color: var(--tainted); }
+  .step.tainted::before { background: var(--tainted); }
+  .step.critical {
+    background: var(--critical-bg);
+    border-color: var(--critical);
+    box-shadow: 0 0 0 1px var(--critical);
+  }
+  .step.critical::before { background: var(--critical); width: 14px; height: 14px; left: -1.75rem; top: 0.85rem; }
+
+  .step .step-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+  .step .step-idx { font-family: var(--mono); font-size: 0.78rem; color: var(--text-dim); }
+  .step .step-type {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-dim);
+  }
+  .step .step-text {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.4;
+  }
+
+  .break-marker {
+    position: relative;
+    margin: -0.15rem 0 0.7rem;
+    padding-left: 0.1rem;
+    font-size: 0.78rem;
+    color: var(--critical);
+    font-weight: 600;
+  }
+  .break-marker::before {
+    content: "";
+    position: absolute;
+    left: -1.65rem;
+    top: 50%;
+    width: 12px;
+    border-top: 2px dashed var(--critical);
+  }
+
+  .findings-panel {
+    margin-top: 2rem;
+    border-top: 1px solid var(--border);
+    padding-top: 1.25rem;
+  }
+  .findings-panel h2 { font-size: 0.95rem; margin: 0 0 0.75rem; }
+  .finding-row {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.65rem 0.85rem;
+    margin-bottom: 0.5rem;
+    background: var(--panel);
+    font-size: 0.86rem;
+  }
+  .finding-row .frow-head { margin-bottom: 0.25rem; }
+  .finding-row .frow-summary { color: var(--text); }
+  .finding-row .frow-detail { color: var(--text-dim); font-family: var(--mono); font-size: 0.78rem; margin-top: 0.3rem; }
+
+  .empty-state {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    padding: 2rem 0;
+    text-align: center;
+  }
+  code.inline { font-family: var(--mono); background: var(--border); padding: 0.05rem 0.35rem; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>AgentLens</h1>
+    <p class="task" id="task-line">Loading trace diagnosis…</p>
+  </header>
+
+  <div id="summary"></div>
+  <div id="timeline" class="timeline"></div>
+  <div id="findings" class="findings-panel" style="display:none;">
+    <h2>All findings</h2>
+    <div id="findings-list"></div>
+  </div>
+</div>
+
+<script>
+  // Point this at whatever diagnosis JSON you want to inspect, relative to
+  // this file. analyze.py writes files in exactly this shape.
+  const DATA_URL = "../sample_traces/stale_plan_tier_with_judge_example.json";
+
+  function badge(text, cls) {
+    const span = document.createElement("span");
+    span.className = "badge " + cls;
+    span.textContent = text;
+    return span;
+  }
+
+  function render(diag) {
+    document.getElementById("task-line").textContent = diag.task;
+
+    const summary = document.getElementById("summary");
+    const cf = diag.critical_finding;
+    const card = document.createElement("div");
+    card.className = "summary-card " + (cf ? "has-failure" : "no-failure");
+
+    if (cf) {
+      card.innerHTML = `
+        <div class="label">Critical step</div>
+        <div class="headline">Step ${cf.step_index} — ${cf.category.replace(/_/g, " ")}</div>
+        <div class="meta">${cf.summary}</div>
+      `;
+      const badges = document.createElement("div");
+      badges.style.marginTop = "0.5rem";
+      badges.appendChild(badge(cf.confidence + " confidence", cf.confidence));
+      badges.appendChild(badge(cf.source, cf.source));
+      card.appendChild(badges);
+    } else {
+      card.innerHTML = `
+        <div class="label">Result</div>
+        <div class="headline">No failure found</div>
+        <div class="meta">${diag.trace_length} steps, no rule or judge findings.</div>
+      `;
+    }
+    summary.appendChild(card);
+
+    const timeline = document.getElementById("timeline");
+    const criticalIdx = cf ? cf.step_index : null;
+
+    diag.steps.forEach((step) => {
+      if (criticalIdx !== null && step.index === criticalIdx) {
+        const marker = document.createElement("div");
+        marker.className = "break-marker";
+        marker.textContent = "trajectory breaks here";
+        timeline.appendChild(marker);
+      }
+
+      const el = document.createElement("div");
+      let stateClass = "";
+      if (criticalIdx !== null) {
+        if (step.index === criticalIdx) stateClass = "critical";
+        else if (step.index > criticalIdx) stateClass = "tainted";
+        else stateClass = "ok";
+      }
+      el.className = "step " + stateClass;
+      el.innerHTML = `
+        <div class="step-head">
+          <span class="step-idx">#${step.index}</span>
+          <span class="step-type">${step.type.replace(/_/g, " ")}</span>
+        </div>
+        <div class="step-text"></div>
+      `;
+      el.querySelector(".step-text").textContent = step.text;
+      timeline.appendChild(el);
+    });
+
+    if (diag.findings && diag.findings.length) {
+      document.getElementById("findings").style.display = "block";
+      const list = document.getElementById("findings-list");
+      diag.findings.forEach((f) => {
+        const row = document.createElement("div");
+        row.className = "finding-row";
+        row.innerHTML = `
+          <div class="frow-head"></div>
+          <div class="frow-summary">Step ${f.step_index} — ${f.summary}</div>
+          ${f.detail ? `<div class="frow-detail"></div>` : ""}
+        `;
+        const head = row.querySelector(".frow-head");
+        head.appendChild(badge(f.category.replace(/_/g, " "), f.confidence));
+        head.appendChild(badge(f.confidence, f.confidence));
+        head.appendChild(badge(f.source, f.source));
+        if (f.detail) row.querySelector(".frow-detail").textContent = f.detail;
+        list.appendChild(row);
+      });
+    }
+  }
+
+  fetch(DATA_URL)
+    .then((r) => {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    })
+    .then(render)
+    .catch((err) => {
+      document.getElementById("task-line").textContent = "";
+      document.getElementById("summary").innerHTML = `
+        <div class="empty-state">
+          Couldn't load <code class="inline">${DATA_URL}</code> (${err.message}).<br><br>
+          Browsers block <code class="inline">fetch()</code> against local files opened directly.
+          Serve this folder instead, e.g. from the project root:<br><br>
+          <code class="inline">python3 -m http.server</code><br><br>
+          then open <code class="inline">http://localhost:8000/output/viewer.html</code>.
+        </div>`;
+    });
+</script>
+</body>
+</html>

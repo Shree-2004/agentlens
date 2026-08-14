@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.env
+output/diagnosis.json
+output/diagnosis_*.json
+output/consistency_report.json

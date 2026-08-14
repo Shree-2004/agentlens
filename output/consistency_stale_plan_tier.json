@@ -1,0 +1,48 @@
+{
+  "trace_path": "sample_traces/stale_plan_tier.json",
+  "n_runs": 5,
+  "runs": [
+    {
+      "run": 1,
+      "critical_step": 2,
+      "category": "stale_fact",
+      "confidence": "high",
+      "summary": "The agent relied on a stale user plan status from a cache lookup, ignoring more recent and contradictory information from the user's billing history."
+    },
+    {
+      "run": 2,
+      "critical_step": 2,
+      "category": "stale_fact",
+      "confidence": "high",
+      "summary": "The agent based its decision on a stale cached plan status (Free tier) from step [2], failing to update its understanding even after a more recent billing history (Pro plan) was retrieved at step [5]."
+    },
+    {
+      "run": 3,
+      "critical_step": 2,
+      "category": "stale_fact",
+      "confidence": "high",
+      "summary": "The agent based its final answer on a cached 'free' tier status, ignoring conflicting information from the billing history that indicated a 'pro' plan."
+    },
+    {
+      "run": 4,
+      "critical_step": 2,
+      "category": "stale_fact",
+      "confidence": "high",
+      "summary": "The agent based its decision on a stale cached plan result (Free tier) which was contradicted by the user's more recent billing history (Pro plan), but failed to update its understanding."
+    },
+    {
+      "run": 5,
+      "critical_step": 3,
+      "category": "stale_fact",
+      "confidence": "high",
+      "summary": "The agent based its decision on a stale cached user plan status, failing to reconcile it with more recent and contradictory billing history information."
+    }
+  ],
+  "step_distribution": {
+    "2": 4,
+    "3": 1
+  },
+  "majority_step": 2,
+  "agreement_rate": 0.8,
+  "all_agree": false
+}

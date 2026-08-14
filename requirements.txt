@@ -1,0 +1,3 @@
+anthropic
+google-genai
+python-dotenv
