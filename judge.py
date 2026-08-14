@@ -14,6 +14,15 @@ import os
 
 from schema import Finding, Trace
 
+
+class JudgeUnavailableError(Exception):
+    """Raised when the judge API call itself failed or returned something
+    unparseable -- distinct from the judge running successfully and finding
+    no failure. Callers that score judge output (benchmarks, consistency
+    checks) need to tell these apart: silently treating "the call never
+    happened" the same as "the judge looked and found nothing" corrupts the
+    exact kind of signal this whole tool exists to protect."""
+
 JUDGE_SYSTEM_PROMPT = """You are diagnosing why an AI agent's run went wrong.
 
 You will be given a task and the full sequence of steps the agent took
@@ -95,8 +104,32 @@ def _call_gemini(user_prompt: str, api_key: str, model: str) -> str:
 # provider -> (env var to look for, model default, call function)
 _PROVIDERS = {
     "anthropic": ("ANTHROPIC_API_KEY", "claude-sonnet-5", _call_anthropic),
-    "gemini": ("GOOGLE_API_KEY", "gemini-2.5-flash", _call_gemini),
+    "gemini": ("GOOGLE_API_KEY", "gemini-flash-latest", _call_gemini),
 }
+
+_RETRYABLE_STATUS_CODES = (429, 500, 502, 503, 529)
+
+
+def _call_with_retry(call_fn, user_prompt: str, api_key: str, model: str, provider: str, max_attempts: int = 4) -> str | None:
+    """Retries transient server-side errors (rate limits, overload) with
+    backoff. Returns None (not raises) if every attempt fails, so a flaky
+    API call doesn't take down a whole benchmark run over one bad request."""
+    import time
+
+    delay = 2.0
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return call_fn(user_prompt, api_key, model)
+        except Exception as e:
+            status = getattr(e, "status_code", None) or getattr(e, "code", None)
+            is_retryable = status in _RETRYABLE_STATUS_CODES
+            if not is_retryable or attempt == max_attempts:
+                print(f"judge ({provider}): giving up after {attempt} attempt(s) ({e})")
+                return None
+            print(f"judge ({provider}): attempt {attempt} failed ({e}), retrying in {delay:.0f}s")
+            time.sleep(delay)
+            delay *= 2
+    return None
 
 
 def run_judge(trace: Trace, provider: str | None = None, model: str | None = None) -> list[Finding]:
@@ -104,8 +137,10 @@ def run_judge(trace: Trace, provider: str | None = None, model: str | None = Non
 
     `provider` picks which API to use ("anthropic" or "gemini"); if omitted,
     picks whichever of ANTHROPIC_API_KEY / GOOGLE_API_KEY is set (Anthropic
-    first). Returns [] if no key is set, the judge finds nothing, or its
-    response can't be parsed -- this layer is additive, never fatal.
+    first). Returns [] if no key is set at all -- that's a deliberate
+    "judge disabled" state, not a failure. Raises JudgeUnavailableError if a
+    key IS set but the call failed or the response couldn't be parsed, so
+    callers don't mistake "the API broke" for "the judge found nothing."
     """
     if provider:
         providers_to_try = [provider]
@@ -121,13 +156,14 @@ def run_judge(trace: Trace, provider: str | None = None, model: str | None = Non
     if not api_key:
         return []
 
-    response_text = call_fn(_format_trace(trace), api_key, model or default_model)
+    response_text = _call_with_retry(call_fn, _format_trace(trace), api_key, model or default_model, chosen)
+    if response_text is None:
+        raise JudgeUnavailableError(f"{chosen} judge call failed after retries")
 
     try:
         verdict = _parse_verdict(response_text)
     except (json.JSONDecodeError, IndexError, AttributeError) as e:
-        print(f"judge ({chosen}): could not parse verdict ({e}), skipping judge findings")
-        return []
+        raise JudgeUnavailableError(f"{chosen} judge returned an unparseable response: {e}") from e
 
     if not verdict.get("has_failure"):
         return []

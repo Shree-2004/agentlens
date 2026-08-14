@@ -1,0 +1,65 @@
+{
+  "_comment": "Hand-labeled ground truth, written before the judge was run on these traces. critical_step/category are null for traces with no injected failure (true-negative tests for false positives). notes explains what makes each trace a distinct test case.",
+  "labels": {
+    "stale_plan_tier.json": {
+      "has_failure": true,
+      "critical_step": 2,
+      "category": "stale_fact",
+      "notes": "Stale cached fact contradicted by a later tool result, never reconciled."
+    },
+    "timezone_assumption.json": {
+      "has_failure": true,
+      "critical_step": 0,
+      "category": "contradicted_assumption",
+      "notes": "Unchecked early assumption, explicitly contradicted by a tool result three steps later."
+    },
+    "misread_units.json": {
+      "has_failure": true,
+      "critical_step": 3,
+      "category": "misread_tool_result",
+      "notes": "Tool result is correct (amount_cents); the agent misreads it as dollars. No stale/contradicted fact -- the error is a misinterpretation of a single correct value."
+    },
+    "duplicate_entity_confusion.json": {
+      "has_failure": true,
+      "critical_step": 3,
+      "category": "ambiguous_entity_resolution",
+      "notes": "Tool honestly reports two matching customers; the agent silently picks one without disambiguating."
+    },
+    "compounding_rounding_error.json": {
+      "has_failure": true,
+      "critical_step": 3,
+      "category": "computational_error",
+      "notes": "Hard case: an internal rounding decision causes a ~14% downstream error, but nothing in the trace explicitly contradicts it. Tests whether a judge designed to spot contradictions can catch an error with no contradiction to find."
+    },
+    "misattributed_source.json": {
+      "has_failure": true,
+      "critical_step": 5,
+      "category": "contradicted_assumption",
+      "notes": "Two retrieved documents conflict; the agent relies on the one marked legacy/superseded instead of the current one it already has."
+    },
+    "outdated_permission_role.json": {
+      "has_failure": true,
+      "critical_step": 2,
+      "category": "stale_fact",
+      "notes": "Stale cached role; compounded by misreading the audit log result that later contradicts it."
+    },
+    "silent_wrong_default.json": {
+      "has_failure": true,
+      "critical_step": 3,
+      "category": "misread_tool_result",
+      "notes": "Tool transparently reports it applied a default (via a note field); the agent doesn't register the note and treats the result as valid."
+    },
+    "clean_success_refund.json": {
+      "has_failure": false,
+      "critical_step": null,
+      "category": null,
+      "notes": "True negative: task completed correctly, nothing contradicted."
+    },
+    "clean_success_flight.json": {
+      "has_failure": false,
+      "critical_step": null,
+      "category": null,
+      "notes": "True negative: task completed correctly, nothing contradicted."
+    }
+  }
+}

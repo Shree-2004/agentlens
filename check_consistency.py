@@ -20,7 +20,7 @@ from collections import Counter
 
 from dotenv import load_dotenv
 
-from judge import run_judge
+from judge import JudgeUnavailableError, run_judge
 from schema import Trace
 
 
@@ -37,7 +37,14 @@ def main() -> None:
     runs = []
 
     for i in range(1, args.n_runs + 1):
-        findings = run_judge(trace, provider=args.provider)
+        try:
+            findings = run_judge(trace, provider=args.provider)
+        except JudgeUnavailableError as e:
+            result = {"run": i, "critical_step": None, "category": None, "confidence": None, "summary": None, "error": str(e)}
+            runs.append(result)
+            print(f"run {i}: ERROR ({e})")
+            continue
+
         if findings:
             f = findings[0]
             result = {
@@ -46,36 +53,52 @@ def main() -> None:
                 "category": f.category,
                 "confidence": f.confidence,
                 "summary": f.summary,
+                "error": None,
             }
         else:
-            result = {"run": i, "critical_step": None, "category": None, "confidence": None, "summary": None}
+            result = {"run": i, "critical_step": None, "category": None, "confidence": None, "summary": None, "error": None}
         runs.append(result)
         print(f"run {i}: step={result['critical_step']} category={result['category']} confidence={result['confidence']}")
 
-    steps = [r["critical_step"] for r in runs]
+    # errored runs never reached a real verdict -- excluded from agreement math,
+    # not counted as "no failure found"
+    completed_runs = [r for r in runs if r["error"] is None]
+    error_count = len(runs) - len(completed_runs)
+
+    steps = [r["critical_step"] for r in completed_runs]
     step_counts = Counter(steps)
-    majority_step, majority_count = step_counts.most_common(1)[0]
-    all_agree = len(step_counts) == 1
 
     report = {
         "trace_path": args.trace_path,
         "n_runs": args.n_runs,
         "runs": runs,
+        "error_count": error_count,
         "step_distribution": dict(step_counts),
-        "majority_step": majority_step,
-        "agreement_rate": majority_count / args.n_runs,
-        "all_agree": all_agree,
     }
+
+    if step_counts:
+        majority_step, majority_count = step_counts.most_common(1)[0]
+        report["majority_step"] = majority_step
+        report["agreement_rate"] = majority_count / len(completed_runs)
+        report["all_agree"] = len(step_counts) == 1
+    else:
+        report["majority_step"] = None
+        report["agreement_rate"] = None
+        report["all_agree"] = None
 
     output_path = args.output or "output/consistency_report.json"
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
 
     print()
-    if all_agree:
-        print(f"Consistent: all {args.n_runs} runs picked step {majority_step}.")
+    if error_count:
+        print(f"{error_count}/{args.n_runs} runs errored (API failures, not judge verdicts) -- excluded from agreement stats.")
+    if not completed_runs:
+        print("No completed runs -- nothing to report.")
+    elif report["all_agree"]:
+        print(f"Consistent: all {len(completed_runs)} completed runs picked step {report['majority_step']}.")
     else:
-        print(f"Inconsistent: step distribution across runs = {dict(step_counts)} "
+        print(f"Inconsistent: step distribution across completed runs = {dict(step_counts)} "
               f"(agreement rate {report['agreement_rate']:.0%})")
     print(f"Wrote report to {output_path}")
 

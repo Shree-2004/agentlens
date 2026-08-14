@@ -1,0 +1,12 @@
+{
+  "task": "Book a window seat for passenger P-102 on flight AI-880 if one is available.",
+  "steps": [
+    {"index": 0, "type": "reasoning", "content": "Checking window seat availability for flight AI-880."},
+    {"index": 1, "type": "tool_call", "tool_name": "check_seat_availability", "tool_args": {"flight": "AI-880", "seat_type": "window"}},
+    {"index": 2, "type": "tool_result", "tool_name": "check_seat_availability", "tool_result": {"flight": "AI-880", "available_window_seats": 3, "seats": ["12A", "18A", "22A"]}, "is_error": false},
+    {"index": 3, "type": "reasoning", "content": "Window seats are available. I'll book seat 12A for passenger P-102."},
+    {"index": 4, "type": "tool_call", "tool_name": "book_seat", "tool_args": {"flight": "AI-880", "passenger_id": "P-102", "seat": "12A"}},
+    {"index": 5, "type": "tool_result", "tool_name": "book_seat", "tool_result": {"status": "booked", "flight": "AI-880", "passenger_id": "P-102", "seat": "12A"}, "is_error": false},
+    {"index": 6, "type": "final_answer", "content": "Seat 12A (window) has been booked for passenger P-102 on flight AI-880."}
+  ]
+}

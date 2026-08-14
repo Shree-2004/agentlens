@@ -1,0 +1,12 @@
+{
+  "task": "Refund order ORD-555 for customer C-900, amount $45.00.",
+  "steps": [
+    {"index": 0, "type": "reasoning", "content": "I'll verify the order details before refunding."},
+    {"index": 1, "type": "tool_call", "tool_name": "get_order", "tool_args": {"order_id": "ORD-555"}},
+    {"index": 2, "type": "tool_result", "tool_name": "get_order", "tool_result": {"order_id": "ORD-555", "customer_id": "C-900", "amount": 45.00, "status": "delivered"}, "is_error": false},
+    {"index": 3, "type": "reasoning", "content": "Order confirmed for the correct customer and amount. Proceeding with the refund."},
+    {"index": 4, "type": "tool_call", "tool_name": "issue_refund", "tool_args": {"order_id": "ORD-555", "amount": 45.00}},
+    {"index": 5, "type": "tool_result", "tool_name": "issue_refund", "tool_result": {"status": "refunded", "order_id": "ORD-555", "amount": 45.00}, "is_error": false},
+    {"index": 6, "type": "final_answer", "content": "Refunded $45.00 to customer C-900 for order ORD-555."}
+  ]
+}
