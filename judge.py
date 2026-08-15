@@ -23,6 +23,7 @@ class JudgeUnavailableError(Exception):
     happened" the same as "the judge looked and found nothing" corrupts the
     exact kind of signal this whole tool exists to protect."""
 
+
 JUDGE_SYSTEM_PROMPT = """You are diagnosing why an AI agent's run went wrong.
 
 You will be given a task and the full sequence of steps the agent took
