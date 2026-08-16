@@ -46,9 +46,13 @@ def main() -> None:
     parser.add_argument("n_runs", type=int, nargs="?", default=3)
     parser.add_argument("--provider", choices=["anthropic", "gemini"])
     parser.add_argument("--output", default="output/benchmark_report.json")
+    parser.add_argument("--only", help="comma-separated trace filenames to run, instead of the full set")
     args = parser.parse_args()
 
     ground_truth = json.loads(GROUND_TRUTH_PATH.read_text(encoding="utf-8"))["labels"]
+    if args.only:
+        wanted = set(args.only.split(","))
+        ground_truth = {k: v for k, v in ground_truth.items() if k in wanted}
 
     per_trace = []
     total_correct = 0
@@ -65,20 +69,36 @@ def main() -> None:
             try:
                 findings = run_judge(trace, provider=args.provider)
             except JudgeUnavailableError as e:
-                run_results.append({"run": i + 1, "predicted_step": None, "correct": None, "error": str(e)})
+                run_results.append({
+                    "run": i + 1,
+                    "predicted_step": None,
+                    "predicted_category": None,
+                    "predicted_summary": None,
+                    "correct": None,
+                    "error": str(e),
+                })
                 total_errored += 1
                 print(f"{filename} run {i + 1}: ERROR ({e})")
                 continue
 
             correct = score_run(findings, label)
             predicted_step = findings[0].step_index if findings else None
+            predicted_category = findings[0].category if findings else None
+            predicted_summary = findings[0].summary if findings else None
 
             if not findings and label["has_failure"]:
                 false_negatives += 1
             if findings and not label["has_failure"]:
                 false_positives += 1
 
-            run_results.append({"run": i + 1, "predicted_step": predicted_step, "correct": correct, "error": None})
+            run_results.append({
+                "run": i + 1,
+                "predicted_step": predicted_step,
+                "predicted_category": predicted_category,
+                "predicted_summary": predicted_summary,
+                "correct": correct,
+                "error": None,
+            })
             total_completed += 1
             total_correct += int(correct)
             print(f"{filename} run {i + 1}: predicted={predicted_step} expected={label['critical_step']} "
