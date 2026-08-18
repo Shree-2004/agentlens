@@ -1,0 +1,37 @@
+{
+  "trace_path": "real_traces/multi_agent_research_live.json",
+  "n_runs": 3,
+  "runs": [
+    {
+      "run": 1,
+      "critical_step": null,
+      "category": null,
+      "confidence": null,
+      "summary": null,
+      "error": null
+    },
+    {
+      "run": 2,
+      "critical_step": null,
+      "category": null,
+      "confidence": null,
+      "summary": null,
+      "error": null
+    },
+    {
+      "run": 3,
+      "critical_step": null,
+      "category": null,
+      "confidence": null,
+      "summary": null,
+      "error": "gemini judge call failed after retries"
+    }
+  ],
+  "error_count": 1,
+  "step_distribution": {
+    "null": 2
+  },
+  "majority_step": null,
+  "agreement_rate": 1.0,
+  "all_agree": true
+}

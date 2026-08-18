@@ -25,6 +25,8 @@ Two layers, run in sequence:
 
 [run_benchmark.py](run_benchmark.py) scores the judge against [sample_traces/ground_truth.json](sample_traces/ground_truth.json) — a hand-labeled set of traces with the correct critical step recorded *before* the judge is run. It runs each trace N times, checks correctness against the label, and tracks false positives/negatives separately from API errors (a call that never completed is not the same as the judge examining a trace and finding nothing — conflating those two would corrupt the exact kind of signal this tool exists to protect, so `judge.py` raises `JudgeUnavailableError` for the former rather than silently returning no findings).
 
+[capture_real_trace.py](capture_real_trace.py) takes a different approach entirely: instead of a hand-authored trace with a known answer, it monkeypatches a real, separate agent project's actual tool calls and LLM invocations to record a genuine, unmodified live run — see "The real-trace test" below.
+
 ## Running it
 
 ```bash
@@ -84,9 +86,21 @@ Also worth naming: getting here required fixing a real bug. The first benchmark 
 
 Full run-by-run data: [output/benchmark_report_remaining.json](output/benchmark_report_remaining.json) and [output/benchmark_report_final.json](output/benchmark_report_final.json).
 
+### The real-trace test
+
+Every trace above was hand-authored — built specifically to contain (or not contain) a failure. That's a structural limitation of any benchmark built this way: a tool that finds problems in traces designed for it to find doesn't prove much about traces nobody designed for it. So [capture_real_trace.py](capture_real_trace.py) does something different: it monkeypatches the actual tool calls and LLM invocations of a separate, real project — [Multi-Agent Research Assistant](https://github.com/Shree-2004/Multi-Agent-Research-Assistant)'s researcher → analyst → writer → critic pipeline — and records what genuinely happens on a live, unmodified run, with no pre-known answer. Output: [real_traces/multi_agent_research_live.json](real_traces/multi_agent_research_live.json).
+
+That live run surfaced a real, unplanned contradiction: the Analyst (step 13) states the 2024 Nobel Prize in Chemistry was awarded for AlphaFold/protein-design work; the Critic (step 15), reviewing the very same report two steps later, states *"the 2024 Nobel Prizes have not yet been announced."* Two directly conflicting claims about the same real-world fact, in the same trace — exactly the shape of thing AgentLens is designed to catch.
+
+**The judge missed it, 3 out of 3 runs.** Both the rule layer (no tool loops or flagged errors here — correctly, since none exist) and the judge (`analyze.py`, then `check_consistency.py` for 2 more independent runs) said no failure found, consistently. This is a genuine, reproducible miss on real data, not a quota artifact.
+
+The likely reason: every synthetic trace in the ground-truth set put its "fact" in a clean, structured `tool_result` (e.g. `{"tier": "free"}`) — easy to diff against a later structured fact. This contradiction instead sits buried in two ~10,000-character prose blocks of AI-generated report text, where the conflicting claim has to be extracted from natural language rather than read off a field. That's a plausible, real gap between "spots structured fact contradictions" and "spots contradictions buried in long free-form reasoning" — and the 8 synthetic failure traces, however varied, never actually tested the latter.
+
 ## Where this goes next
 
-- **Even out the sample sizes.** 1-2 real calls on some traces vs. 11 on others is a real limitation of "run until the free tier stops you" — more balanced runs (or a paid tier) would tighten this into an actual number worth quoting.
+- **Prompt the judge for prose-buried contradictions, not just structured ones.** The real-trace miss suggests the judge's contradiction-spotting may not transfer from clean `tool_result` diffs to conflicting claims embedded in long natural-language text — worth a targeted prompt revision and a re-test against the same real trace.
+- **Capture more real traces**, ideally ones that fail more obviously than this one (a genuine crash, not just a subtle prose contradiction), to see whether the miss above is specific to "long + prose-buried" or a broader gap.
+- **Even out the sample sizes** on the synthetic benchmark. 1-2 real calls on some traces vs. 11 on others is a real limitation of "run until the free tier stops you" — more balanced runs (or a paid tier) would tighten this into an actual number worth quoting.
 - **Decide how to prompt around the `silent_wrong_default` edge case** — either accept that traces without an explicit later contradiction have a wider band of defensible answers, or tighten the judge prompt to also weigh "did the agent ignore an explicit warning" as its own signal, not just fact-vs-fact contradictions.
 - **Adapters** for real trace formats (OpenTelemetry GenAI spans, LangSmith exports, raw OpenAI/Anthropic tool-use logs) instead of the hand-rolled JSON schema.
 - **A pytest-style regression harness**: turn each diagnosed failure into a fixture that re-runs automatically, so a fixed bug that regresses gets caught in CI instead of production.
