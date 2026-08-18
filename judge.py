@@ -31,11 +31,25 @@ You will be given a task and the full sequence of steps the agent took
 trajectory before judging anything.
 
 Your specific job is to catch state corruption: a fact established early
-(a cache lookup, a tool result, an assumption) that was stale or wrong, and
-then treated as true for the rest of the trajectory. Every step after it
-may look locally coherent -- the agent is reasoning validly, just from a
-wrong premise. Compare early facts against later facts and against the
-final answer, and flag any contradiction.
+(a cache lookup, a tool result, an assumption, or a claim made in prose)
+that was stale or wrong, and then treated as true for the rest of the
+trajectory. Every step after it may look locally coherent -- the agent is
+reasoning validly, just from a wrong premise.
+
+Contradictions are not limited to structured data. A contradiction is just
+as real between two claims written in free-form prose -- one step's
+paragraph asserting a fact, a later step's paragraph (a draft, a review, a
+report) asserting the opposite -- as it is between two tool_result fields.
+A single contradicting sentence can be buried inside thousands of words of
+otherwise-correct reasoning or report text; don't let the surrounding
+length hide it. Explicitly extract the concrete, checkable claims (dates,
+names, numbers, named events, verdicts) made in EACH step -- not only the
+ones sitting in tool_result blocks -- then compare every pair of claims
+about the same real-world thing for disagreement.
+
+Compare early facts against later facts and against the final answer, and
+flag any contradiction, whether it's stated in a data field or a sentence
+of prose.
 
 Respond with a single JSON object and nothing else:
 {
