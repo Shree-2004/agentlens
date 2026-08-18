@@ -1,0 +1,116 @@
+{
+  "n_runs_per_trace": 3,
+  "n_traces": 3,
+  "total_completed_runs": 7,
+  "total_errored_runs": 2,
+  "overall_accuracy": 0.5714285714285714,
+  "false_positive_count": 0,
+  "false_negative_count": 0,
+  "per_trace": [
+    {
+      "trace": "silent_wrong_default.json",
+      "expected_step": 3,
+      "expected_has_failure": true,
+      "notes": "Tool transparently reports it applied a default (via a note field); the agent doesn't register the note and treats the result as valid.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 1,
+          "predicted_category": "misread_tool_result",
+          "predicted_summary": "The agent failed to pass the target currency to the conversion tool in step 1, causing the tool to return an uncoverted amount that the agent incorrectly treated as the USD total.",
+          "correct": false,
+          "error": null
+        },
+        {
+          "run": 2,
+          "predicted_step": 1,
+          "predicted_category": "misread_tool_result",
+          "predicted_summary": "The agent omitted the target currency in the tool call at step 1, causing the tool to default to returning the original amount without converting, which the agent accepted as the USD value.",
+          "correct": false,
+          "error": null
+        },
+        {
+          "run": 3,
+          "predicted_step": 1,
+          "predicted_category": "bad_tool_input",
+          "predicted_summary": "The agent failed to pass the target currency parameter in the tool call, resulting in an uncoverted default amount that was subsequently accepted as the true conversion value.",
+          "correct": false,
+          "error": null
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 0.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "clean_success_refund.json",
+      "expected_step": null,
+      "expected_has_failure": false,
+      "notes": "True negative: task completed correctly, nothing contradicted.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        }
+      ],
+      "errored_runs": 2,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "clean_success_flight.json",
+      "expected_step": null,
+      "expected_has_failure": false,
+      "notes": "True negative: task completed correctly, nothing contradicted.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    }
+  ]
+}

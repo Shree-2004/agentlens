@@ -61,9 +61,7 @@ Traces are plain JSON: a task description plus an ordered list of steps (`reason
 
 ## Status
 
-Still not a validated tool, but there's now a real (if incomplete) benchmark in progress against the 10-trace hand-labeled ground-truth set, using Gemini (`gemini-flash-latest`).
-
-**What's actually been measured**, counting only calls that genuinely completed (excludes API errors — see the false-negative caveat below):
+The benchmark is now complete in the sense that matters most: **every trace in the ground-truth set has real judge data**, including both false-positive tests that took three separate sessions to actually get a call through. Sample sizes are uneven (1 to 11 real calls per trace, driven entirely by when Gemini's free tier let calls through), so treat this as a solid early read, not a final number with tight error bars.
 
 | Trace | Real calls | Correct |
 |---|---|---|
@@ -74,17 +72,22 @@ Still not a validated tool, but there's now a real (if incomplete) benchmark in 
 | `compounding_rounding_error` (computational error, no explicit contradiction — the deliberately hard case) | 2 | 2 |
 | `misattributed_source` (relied on a superseded doc over a current one) | 2 | 2 |
 | `outdated_permission_role` (stale cached role) | 2 | 2 |
-| `silent_wrong_default` (tool transparently reports a default, agent doesn't register it) | 1 | 0 — a genuine miss, not a quota artifact: the judge picked step 1 (the tool call that omitted an argument) instead of step 3 (where the agent failed to notice the resulting default). A defensible alternate framing, arguably, but it doesn't match the label. |
-| `clean_success_refund`, `clean_success_flight` (both false-positive tests) | 0 | untested |
+| `silent_wrong_default` (tool transparently reports a default, agent doesn't register it) | 4 | 0 — **not a random miss.** All 4 runs consistently picked step 1 (the tool call that omitted `to_currency`) over the labeled step 3 (where the agent ignored the tool's own explanatory note). See below. |
+| `clean_success_refund` (false-positive test) | 1 | 1 |
+| `clean_success_flight` (false-positive test) | 3 | 3 |
 
-37/38 on the traces that got real calls, including a genuine, non-quota miss on `silent_wrong_default` that's worth taking seriously rather than averaging away — full run-by-run detail in [output/benchmark_report_remaining.json](output/benchmark_report_remaining.json). **Both false-positive tests still have zero real data** — every call against them has failed, twice now, across two separate benchmark runs. That's the single biggest gap: we have no evidence yet on whether the judge over-triggers on clean traces, which matters at least as much as step accuracy on failing ones.
+**Overall: 40/45 real calls matched the label (89%), zero false positives across 4 real runs on the two clean traces.** The false-positive result is the more important number of the two — a tool that hallucinates problems in clean traces is worse than one that misses real ones, and this is the first real evidence either way.
 
-**Why it's still incomplete:** Gemini's free tier caps usage at 20 requests/day per Google Cloud project per model, and today's attempt also ran into "high demand" 503s on top of that — 10 of 15 calls in the last run never completed at all. The first version of `run_benchmark.py` didn't distinguish "the API call never completed" from "the judge ran and found nothing" — so those failures used to be silently scored as false negatives (and, on the clean traces, as coincidentally-correct true negatives). That's fixed: `judge.py` raises `JudgeUnavailableError` for a failed call, and the benchmark/consistency scripts exclude errored runs from accuracy math instead of miscounting them. Worth naming directly: this is the exact silent-failure pattern AgentLens's own rule layer checks for in *other* agents' traces (`find_silent_errors` in `rules.py`) — a fitting case study in why that check exists, not just an inconvenience in getting a number.
+**The `silent_wrong_default` disagreement turned out to be reproducible, not noise** — 4/4 runs gave the identical answer (step 1), with reasoning like *"the agent failed to pass the target currency to the conversion tool... causing the tool to return an unconverted amount that the agent incorrectly treated as the USD total."* That's internally consistent and not unreasonable: the judge is locating the root cause at the incomplete tool call itself, where the ground-truth label instead points at the agent's failure to read the tool's own warning about it three steps later. Both are defensible readings of "where the wrong premise was introduced" for a trace that — unlike the others — has no second, contradicting tool result to anchor the answer to. That's arguably a real edge in the judge's prompt (traces without an explicit contradiction leave more room for a plausible-but-different root cause) rather than a straightforward wrong answer, and worth flagging as a known limitation rather than quietly excluding it from the count.
+
+Also worth naming: getting here required fixing a real bug. The first benchmark run silently scored "the API call never completed" the same as "the judge found nothing" — inflating false negatives and, on clean traces, faking correct answers by coincidence. `judge.py` now raises `JudgeUnavailableError` for a failed call instead of returning no findings, and every script that scores judge output excludes errored runs rather than miscounting them. Worth naming directly: this is the exact silent-failure pattern AgentLens's own rule layer checks for in *other* agents' traces (`find_silent_errors` in `rules.py`) — a fitting case study in why that check exists.
+
+Full run-by-run data: [output/benchmark_report_remaining.json](output/benchmark_report_remaining.json) and [output/benchmark_report_final.json](output/benchmark_report_final.json).
 
 ## Where this goes next
 
-- **Finish the benchmark**, specifically the two clean/false-positive traces — that's the one piece of the ground-truth set with zero data after two attempts, and it's arguably more important than more step-accuracy samples on traces that already look solid. `python3 run_benchmark.py 3 --only "clean_success_refund.json,clean_success_flight.json"` targets just those two without re-spending quota on traces that already have good data.
-- **Look into the `silent_wrong_default` miss** once there's budget for another judge call — is "the tool call that omitted the argument" a reasonable alternate answer, or a real blind spot in the judge's framing of "where the wrong premise was introduced"?
+- **Even out the sample sizes.** 1-2 real calls on some traces vs. 11 on others is a real limitation of "run until the free tier stops you" — more balanced runs (or a paid tier) would tighten this into an actual number worth quoting.
+- **Decide how to prompt around the `silent_wrong_default` edge case** — either accept that traces without an explicit later contradiction have a wider band of defensible answers, or tighten the judge prompt to also weigh "did the agent ignore an explicit warning" as its own signal, not just fact-vs-fact contradictions.
 - **Adapters** for real trace formats (OpenTelemetry GenAI spans, LangSmith exports, raw OpenAI/Anthropic tool-use logs) instead of the hand-rolled JSON schema.
 - **A pytest-style regression harness**: turn each diagnosed failure into a fixture that re-runs automatically, so a fixed bug that regresses gets caught in CI instead of production.
 - **Batch mode**: run the pipeline over a folder of traces and surface the most common failure category across a whole eval run, not just one trace at a time.
