@@ -42,17 +42,28 @@ paragraph asserting a fact, a later step's paragraph (a draft, a review, a
 report) asserting the opposite -- as it is between two tool_result fields.
 A single contradicting sentence can be buried inside thousands of words of
 otherwise-correct reasoning or report text; don't let the surrounding
-length hide it. Explicitly extract the concrete, checkable claims (dates,
-names, numbers, named events, verdicts) made in EACH step -- not only the
-ones sitting in tool_result blocks -- then compare every pair of claims
-about the same real-world thing for disagreement.
+length hide it.
 
-Compare early facts against later facts and against the final answer, and
-flag any contradiction, whether it's stated in a data field or a sentence
-of prose.
+You MUST do this in two passes, and the first pass is a required part of
+your output, not just internal reasoning you can skip:
+
+PASS 1 -- EXTRACT. Go through every step in order. For each one, pull out
+every concrete, checkable claim it makes -- a date, a name, a number, a
+named event, a verdict -- whether that claim sits in a tool_result field
+or is written into a sentence of prose. List each one in the "claims"
+array below, tagged with the step it came from. Do this even for steps
+that seem purely narrative (a draft report, a review) -- those are exactly
+where a prose-buried contradiction hides. An empty or near-empty claims
+list on a long trace is a sign you skipped this pass; do not skip it.
+
+PASS 2 -- COMPARE. Only after PASS 1 is complete, compare every pair of
+claims that refer to the same real-world thing (the same event, the same
+entity, the same fact) and check whether they agree. A contradiction found
+here is what determines has_failure below.
 
 Respond with a single JSON object and nothing else:
 {
+  "claims": [{"step": int, "claim": string}],  // PASS 1 output -- required, fill this in first
   "has_failure": bool,
   "critical_step": int | null,   // where the wrong premise was INTRODUCED, not where it became visible
   "category": string | null,     // e.g. "stale_fact", "contradicted_assumption", "misread_tool_result", "other"
@@ -61,8 +72,9 @@ Respond with a single JSON object and nothing else:
   "contradictions": [string]     // the early fact vs. the later fact that conflicts with it
 }
 
-If you find no state corruption, set has_failure to false and leave the
-other fields null / empty."""
+If PASS 2 finds no contradiction, set has_failure to false and leave
+critical_step/category/contradictions null / empty -- but "claims" is
+still required either way."""
 
 
 def _format_trace(trace: Trace) -> str:
@@ -147,6 +159,43 @@ def _call_with_retry(call_fn, user_prompt: str, api_key: str, model: str, provid
     return None
 
 
+def run_judge_raw(trace: Trace, provider: str | None = None, model: str | None = None) -> dict | None:
+    """Calls an LLM once with the full trajectory and returns the raw parsed
+    verdict dict (including the "claims" extraction-pass field), or None if
+    no API key is configured at all.
+
+    Exists mainly for debugging the judge itself -- e.g. checking whether it
+    actually performed the claim-extraction pass, not just whether its final
+    has_failure verdict was right. run_judge() below is what normal callers
+    should use; it wraps this and returns Findings.
+
+    Raises JudgeUnavailableError if a key IS set but the call failed or the
+    response couldn't be parsed.
+    """
+    if provider:
+        providers_to_try = [provider]
+    else:
+        providers_to_try = [p for p, (env_var, _, _) in _PROVIDERS.items() if os.environ.get(env_var)]
+
+    if not providers_to_try:
+        return None
+
+    chosen = providers_to_try[0]
+    env_var, default_model, call_fn = _PROVIDERS[chosen]
+    api_key = os.environ.get(env_var)
+    if not api_key:
+        return None
+
+    response_text = _call_with_retry(call_fn, _format_trace(trace), api_key, model or default_model, chosen)
+    if response_text is None:
+        raise JudgeUnavailableError(f"{chosen} judge call failed after retries")
+
+    try:
+        return _parse_verdict(response_text)
+    except (json.JSONDecodeError, IndexError, AttributeError) as e:
+        raise JudgeUnavailableError(f"{chosen} judge returned an unparseable response: {e}") from e
+
+
 def run_judge(trace: Trace, provider: str | None = None, model: str | None = None) -> list[Finding]:
     """Calls an LLM once with the full trajectory to check for state corruption.
 
@@ -157,28 +206,9 @@ def run_judge(trace: Trace, provider: str | None = None, model: str | None = Non
     key IS set but the call failed or the response couldn't be parsed, so
     callers don't mistake "the API broke" for "the judge found nothing."
     """
-    if provider:
-        providers_to_try = [provider]
-    else:
-        providers_to_try = [p for p, (env_var, _, _) in _PROVIDERS.items() if os.environ.get(env_var)]
-
-    if not providers_to_try:
+    verdict = run_judge_raw(trace, provider=provider, model=model)
+    if verdict is None:
         return []
-
-    chosen = providers_to_try[0]
-    env_var, default_model, call_fn = _PROVIDERS[chosen]
-    api_key = os.environ.get(env_var)
-    if not api_key:
-        return []
-
-    response_text = _call_with_retry(call_fn, _format_trace(trace), api_key, model or default_model, chosen)
-    if response_text is None:
-        raise JudgeUnavailableError(f"{chosen} judge call failed after retries")
-
-    try:
-        verdict = _parse_verdict(response_text)
-    except (json.JSONDecodeError, IndexError, AttributeError) as e:
-        raise JudgeUnavailableError(f"{chosen} judge returned an unparseable response: {e}") from e
 
     if not verdict.get("has_failure"):
         return []
