@@ -102,14 +102,21 @@ The likely reason: every synthetic trace in the ground-truth set put its "fact" 
 
 This is one success on one real trace, not proof the fix generalizes — the obvious next step is checking it didn't regress the synthetic benchmark's 89%.
 
-**Regression check: started, barely.** Ran the full 10-trace synthetic benchmark against the structural-fix prompt; heavy quota pressure meant only 4 of 30 attempted calls completed. All 4 were correct (`stale_plan_tier` 3/3, `outdated_permission_role` 1/3), matching the pre-fix results exactly — a good sign, not a confirmation. 2 of 10 traces have any post-fix data; the other 8, including `silent_wrong_default` (the known edge case) and both clean/false-positive traces (where a new false positive is the actual risk this change could introduce), have none yet. Full data: [output/benchmark_report_v2_structural_fix.json](output/benchmark_report_v2_structural_fix.json).
+**Regression check: in progress, no regressions found yet.** Ran the full 10-trace synthetic benchmark against the structural-fix prompt across two sessions, prioritizing the highest-risk traces once quota allowed:
+
+- `stale_plan_tier`: 3/3 correct
+- `outdated_permission_role`: 1/3 correct (2 errored)
+- `clean_success_refund`: 2/2 correct — **zero false positives**
+- `clean_success_flight`: 2/2 correct — **zero false positives**
+- `silent_wrong_default`: 0/2 — still picks step 1 over the labeled step 3, identical to its pre-fix behavior. Not a new regression, just confirmation the fix doesn't happen to resolve this known disagreement either.
+
+10 completed calls across 5 of 10 traces, no new regressions. The traces that most needed checking — both clean/false-positive traces, where a new false positive was the real risk of adding the claims-extraction step — came back clean. 5 traces (`timezone_assumption`, `misread_units`, `duplicate_entity_confusion`, `compounding_rounding_error`, `misattributed_source`) still have no post-fix data. Full data: [output/benchmark_report_v2_structural_fix.json](output/benchmark_report_v2_structural_fix.json) and [output/benchmark_report_v2_priority.json](output/benchmark_report_v2_priority.json).
 
 ## Where this goes next
 
-- **Finish the regression check.** 4/30 completed so far, all correct — promising but nowhere near enough coverage, especially on the two clean traces (false-positive risk) and `silent_wrong_default` (the known edge case). `python3 run_benchmark.py 3` picks up wherever quota allows next.
+- **Finish the regression check** on the remaining 5 traces. `python3 run_benchmark.py 3 --only "timezone_assumption.json,misread_units.json,duplicate_entity_confusion.json,compounding_rounding_error.json,misattributed_source.json"` picks up wherever quota allows next.
 - **Capture more real traces**, ideally ones that fail more obviously than this one (a genuine crash, not just a subtle prose contradiction), to see whether the fix generalizes beyond "long + prose-buried."
-- **Even out the sample sizes** on the synthetic benchmark. 1-2 real calls on some traces vs. 11 on others is a real limitation of "run until the free tier stops you" — more balanced runs (or a paid tier) would tighten this into an actual number worth quoting.
-- **Decide how to prompt around the `silent_wrong_default` edge case** — either accept that traces without an explicit later contradiction have a wider band of defensible answers, or tighten the judge prompt to also weigh "did the agent ignore an explicit warning" as its own signal, not just fact-vs-fact contradictions.
+- **Even out the sample sizes** on the synthetic benchmark. 1-3 real calls on some traces vs. 11 on others is a real limitation of "run until the free tier stops you" — more balanced runs (or a paid tier) would tighten this into an actual number worth quoting.
 - **Adapters** for real trace formats (OpenTelemetry GenAI spans, LangSmith exports, raw OpenAI/Anthropic tool-use logs) instead of the hand-rolled JSON schema.
 - **A pytest-style regression harness**: turn each diagnosed failure into a fixture that re-runs automatically, so a fixed bug that regresses gets caught in CI instead of production.
 - **Batch mode**: run the pipeline over a folder of traces and surface the most common failure category across a whole eval run, not just one trace at a time.
