@@ -1,0 +1,361 @@
+{
+  "n_runs_per_trace": 3,
+  "n_traces": 10,
+  "total_completed_runs": 4,
+  "total_errored_runs": 26,
+  "overall_accuracy": 1.0,
+  "false_positive_count": 0,
+  "false_negative_count": 0,
+  "per_trace": [
+    {
+      "trace": "stale_plan_tier.json",
+      "expected_step": 2,
+      "expected_has_failure": true,
+      "notes": "Stale cached fact contradicted by a later tool result, never reconciled.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 2,
+          "predicted_category": "stale_fact",
+          "predicted_summary": "The agent relied on a stale cached plan record from January 2026 and ignored a subsequent August 2026 billing record confirming an active Pro plan.",
+          "correct": true,
+          "error": null
+        },
+        {
+          "run": 2,
+          "predicted_step": 2,
+          "predicted_category": "stale_fact",
+          "predicted_summary": "The agent relied on a stale cache result from January 2026 indicating a Free tier, overlooking subsequent billing data from August 2026 confirming an active Pro subscription.",
+          "correct": true,
+          "error": null
+        },
+        {
+          "run": 3,
+          "predicted_step": 2,
+          "predicted_category": "stale_fact",
+          "predicted_summary": "The agent relied on stale cached plan data from January 2026 and ignored more recent billing records from August 2026 showing an active Pro subscription.",
+          "correct": true,
+          "error": null
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "timezone_assumption.json",
+      "expected_step": 0,
+      "expected_has_failure": true,
+      "notes": "Unchecked early assumption, explicitly contradicted by a tool result three steps later.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        }
+      ],
+      "errored_runs": 3,
+      "accuracy": null,
+      "self_consistency": null
+    },
+    {
+      "trace": "misread_units.json",
+      "expected_step": 3,
+      "expected_has_failure": true,
+      "notes": "Tool result is correct (amount_cents); the agent misreads it as dollars. No stale/contradicted fact -- the error is a misinterpretation of a single correct value.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        }
+      ],
+      "errored_runs": 3,
+      "accuracy": null,
+      "self_consistency": null
+    },
+    {
+      "trace": "duplicate_entity_confusion.json",
+      "expected_step": 3,
+      "expected_has_failure": true,
+      "notes": "Tool honestly reports two matching customers; the agent silently picks one without disambiguating.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        }
+      ],
+      "errored_runs": 3,
+      "accuracy": null,
+      "self_consistency": null
+    },
+    {
+      "trace": "compounding_rounding_error.json",
+      "expected_step": 3,
+      "expected_has_failure": true,
+      "notes": "Hard case: an internal rounding decision causes a ~14% downstream error, but nothing in the trace explicitly contradicts it. Tests whether a judge designed to spot contradictions can catch an error with no contradiction to find.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        }
+      ],
+      "errored_runs": 3,
+      "accuracy": null,
+      "self_consistency": null
+    },
+    {
+      "trace": "misattributed_source.json",
+      "expected_step": 5,
+      "expected_has_failure": true,
+      "notes": "Two retrieved documents conflict; the agent relies on the one marked legacy/superseded instead of the current one it already has.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        }
+      ],
+      "errored_runs": 3,
+      "accuracy": null,
+      "self_consistency": null
+    },
+    {
+      "trace": "outdated_permission_role.json",
+      "expected_step": 2,
+      "expected_has_failure": true,
+      "notes": "Stale cached role; compounded by misreading the audit log result that later contradicts it.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 3,
+          "predicted_step": 2,
+          "predicted_category": "stale_fact",
+          "predicted_summary": "The agent relied on a stale cached role from May 2026 and ignored the subsequent July 2026 role revocation in the audit log, improperly granting dashboard access.",
+          "correct": true,
+          "error": null
+        }
+      ],
+      "errored_runs": 2,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "silent_wrong_default.json",
+      "expected_step": 3,
+      "expected_has_failure": true,
+      "notes": "Tool transparently reports it applied a default (via a note field); the agent doesn't register the note and treats the result as valid.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        }
+      ],
+      "errored_runs": 3,
+      "accuracy": null,
+      "self_consistency": null
+    },
+    {
+      "trace": "clean_success_refund.json",
+      "expected_step": null,
+      "expected_has_failure": false,
+      "notes": "True negative: task completed correctly, nothing contradicted.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        }
+      ],
+      "errored_runs": 3,
+      "accuracy": null,
+      "self_consistency": null
+    },
+    {
+      "trace": "clean_success_flight.json",
+      "expected_step": null,
+      "expected_has_failure": false,
+      "notes": "True negative: task completed correctly, nothing contradicted.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        }
+      ],
+      "errored_runs": 3,
+      "accuracy": null,
+      "self_consistency": null
+    }
+  ]
+}

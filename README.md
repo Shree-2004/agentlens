@@ -102,9 +102,11 @@ The likely reason: every synthetic trace in the ground-truth set put its "fact" 
 
 This is one success on one real trace, not proof the fix generalizes — the obvious next step is checking it didn't regress the synthetic benchmark's 89%.
 
+**Regression check: started, barely.** Ran the full 10-trace synthetic benchmark against the structural-fix prompt; heavy quota pressure meant only 4 of 30 attempted calls completed. All 4 were correct (`stale_plan_tier` 3/3, `outdated_permission_role` 1/3), matching the pre-fix results exactly — a good sign, not a confirmation. 2 of 10 traces have any post-fix data; the other 8, including `silent_wrong_default` (the known edge case) and both clean/false-positive traces (where a new false positive is the actual risk this change could introduce), have none yet. Full data: [output/benchmark_report_v2_structural_fix.json](output/benchmark_report_v2_structural_fix.json).
+
 ## Where this goes next
 
-- **Re-run the full 10-trace synthetic benchmark against the structural-fix prompt.** A fix that catches the real-trace case but breaks traces that already worked is a net loss — this needs verifying before the fix counts as done, not just promising.
+- **Finish the regression check.** 4/30 completed so far, all correct — promising but nowhere near enough coverage, especially on the two clean traces (false-positive risk) and `silent_wrong_default` (the known edge case). `python3 run_benchmark.py 3` picks up wherever quota allows next.
 - **Capture more real traces**, ideally ones that fail more obviously than this one (a genuine crash, not just a subtle prose contradiction), to see whether the fix generalizes beyond "long + prose-buried."
 - **Even out the sample sizes** on the synthetic benchmark. 1-2 real calls on some traces vs. 11 on others is a real limitation of "run until the free tier stops you" — more balanced runs (or a paid tier) would tighten this into an actual number worth quoting.
 - **Decide how to prompt around the `silent_wrong_default` edge case** — either accept that traces without an explicit later contradiction have a wider band of defensible answers, or tighten the judge prompt to also weigh "did the agent ignore an explicit warning" as its own signal, not just fact-vs-fact contradictions.
