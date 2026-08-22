@@ -102,19 +102,22 @@ The likely reason: every synthetic trace in the ground-truth set put its "fact" 
 
 This is one success on one real trace, not proof the fix generalizes — the obvious next step is checking it didn't regress the synthetic benchmark's 89%.
 
-**Regression check: in progress, no regressions found yet.** Ran the full 10-trace synthetic benchmark against the structural-fix prompt across two sessions, prioritizing the highest-risk traces once quota allowed:
+**Regression check: 8 of 10 traces done, zero regressions found.** Ran the full 10-trace synthetic benchmark against the structural-fix prompt across three sessions, prioritizing the highest-risk traces once quota allowed:
 
 - `stale_plan_tier`: 3/3 correct
 - `outdated_permission_role`: 1/3 correct (2 errored)
 - `clean_success_refund`: 2/2 correct — **zero false positives**
 - `clean_success_flight`: 2/2 correct — **zero false positives**
 - `silent_wrong_default`: 0/2 — still picks step 1 over the labeled step 3, identical to its pre-fix behavior. Not a new regression, just confirmation the fix doesn't happen to resolve this known disagreement either.
+- `timezone_assumption`: 2/2 correct
+- `misread_units`: 3/3 correct
+- `duplicate_entity_confusion`: 2/2 correct
 
-10 completed calls across 5 of 10 traces, no new regressions. The traces that most needed checking — both clean/false-positive traces, where a new false positive was the real risk of adding the claims-extraction step — came back clean. 5 traces (`timezone_assumption`, `misread_units`, `duplicate_entity_confusion`, `compounding_rounding_error`, `misattributed_source`) still have no post-fix data. Full data: [output/benchmark_report_v2_structural_fix.json](output/benchmark_report_v2_structural_fix.json) and [output/benchmark_report_v2_priority.json](output/benchmark_report_v2_priority.json).
+17 completed calls across 8 of 10 traces, no new regressions anywhere — including both clean/false-positive traces, where a new false positive was the real risk of adding the claims-extraction step. Only `compounding_rounding_error` and `misattributed_source` still have zero post-fix data (every attempted call on both has errored so far). Full data: [output/benchmark_report_v2_structural_fix.json](output/benchmark_report_v2_structural_fix.json), [output/benchmark_report_v2_priority.json](output/benchmark_report_v2_priority.json), and [output/benchmark_report_v2_remaining5.json](output/benchmark_report_v2_remaining5.json).
 
 ## Where this goes next
 
-- **Finish the regression check** on the remaining 5 traces. `python3 run_benchmark.py 3 --only "timezone_assumption.json,misread_units.json,duplicate_entity_confusion.json,compounding_rounding_error.json,misattributed_source.json"` picks up wherever quota allows next.
+- **Finish the regression check** on the last 2 traces. `python3 run_benchmark.py 3 --only "compounding_rounding_error.json,misattributed_source.json"` picks up wherever quota allows next — this is the one thing left before the fix counts as fully verified.
 - **Capture more real traces**, ideally ones that fail more obviously than this one (a genuine crash, not just a subtle prose contradiction), to see whether the fix generalizes beyond "long + prose-buried."
 - **Even out the sample sizes** on the synthetic benchmark. 1-3 real calls on some traces vs. 11 on others is a real limitation of "run until the free tier stops you" — more balanced runs (or a paid tier) would tighten this into an actual number worth quoting.
 - **Adapters** for real trace formats (OpenTelemetry GenAI spans, LangSmith exports, raw OpenAI/Anthropic tool-use logs) instead of the hand-rolled JSON schema.

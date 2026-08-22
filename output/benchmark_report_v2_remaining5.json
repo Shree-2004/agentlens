@@ -1,0 +1,186 @@
+{
+  "n_runs_per_trace": 3,
+  "n_traces": 5,
+  "total_completed_runs": 7,
+  "total_errored_runs": 8,
+  "overall_accuracy": 1.0,
+  "false_positive_count": 0,
+  "false_negative_count": 0,
+  "per_trace": [
+    {
+      "trace": "timezone_assumption.json",
+      "expected_step": 0,
+      "expected_has_failure": true,
+      "notes": "Unchecked early assumption, explicitly contradicted by a tool result three steps later.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 0,
+          "predicted_category": "contradicted_assumption",
+          "predicted_summary": "The agent assumed user U-220's timezone was America/New_York and scheduled the reminder prior to checking the profile, which revealed the user's actual timezone is Asia/Kolkata.",
+          "correct": true,
+          "error": null
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 3,
+          "predicted_step": 0,
+          "predicted_category": "contradicted_assumption",
+          "predicted_summary": "The agent assumed the user's timezone was America/New_York and scheduled the reminder before checking their profile, which revealed their actual timezone is Asia/Kolkata.",
+          "correct": true,
+          "error": null
+        }
+      ],
+      "errored_runs": 1,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "misread_units.json",
+      "expected_step": 3,
+      "expected_has_failure": true,
+      "notes": "Tool result is correct (amount_cents); the agent misreads it as dollars. No stale/contradicted fact -- the error is a misinterpretation of a single correct value.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 3,
+          "predicted_category": "misread_tool_result",
+          "predicted_summary": "The agent misread the order total of 4200 cents ($42.00) as $4200, incorrectly concluding that the order exceeded the $500 threshold for free shipping.",
+          "correct": true,
+          "error": null
+        },
+        {
+          "run": 2,
+          "predicted_step": 3,
+          "predicted_category": "misread_tool_result",
+          "predicted_summary": "The agent misread the order total of 4200 cents ($42.00) as $4200.00, incorrectly concluding that the order met the $500 free shipping threshold.",
+          "correct": true,
+          "error": null
+        },
+        {
+          "run": 3,
+          "predicted_step": 3,
+          "predicted_category": "misread_tool_result",
+          "predicted_summary": "The agent misread 4200 cents as $4200 instead of $42.00, incorrectly concluding the order met the $500 threshold for free shipping.",
+          "correct": true,
+          "error": null
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "duplicate_entity_confusion.json",
+      "expected_step": 3,
+      "expected_has_failure": true,
+      "notes": "Tool honestly reports two matching customers; the agent silently picks one without disambiguating.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 3,
+          "predicted_category": "contradicted_assumption",
+          "predicted_summary": "The agent arbitrarily selected account C-1001 despite the search tool returning multiple ambiguous customer records.",
+          "correct": true,
+          "error": null
+        },
+        {
+          "run": 2,
+          "predicted_step": 3,
+          "predicted_category": "contradicted_assumption",
+          "predicted_summary": "The agent arbitrarily assumed customer C-1001 was the intended target despite search results returning multiple matching accounts without disambiguation.",
+          "correct": true,
+          "error": null
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        }
+      ],
+      "errored_runs": 1,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "compounding_rounding_error.json",
+      "expected_step": 3,
+      "expected_has_failure": true,
+      "notes": "Hard case: an internal rounding decision causes a ~14% downstream error, but nothing in the trace explicitly contradicts it. Tests whether a judge designed to spot contradictions can catch an error with no contradiction to find.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        }
+      ],
+      "errored_runs": 3,
+      "accuracy": null,
+      "self_consistency": null
+    },
+    {
+      "trace": "misattributed_source.json",
+      "expected_step": 5,
+      "expected_has_failure": true,
+      "notes": "Two retrieved documents conflict; the agent relies on the one marked legacy/superseded instead of the current one it already has.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        }
+      ],
+      "errored_runs": 3,
+      "accuracy": null,
+      "self_consistency": null
+    }
+  ]
+}
