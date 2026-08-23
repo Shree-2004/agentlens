@@ -102,24 +102,28 @@ The likely reason: every synthetic trace in the ground-truth set put its "fact" 
 
 This is one success on one real trace, not proof the fix generalizes — the obvious next step is checking it didn't regress the synthetic benchmark's 89%.
 
-**Regression check: 9 of 10 traces done, zero regressions found.** Ran the full 10-trace synthetic benchmark against the structural-fix prompt across four sessions, prioritizing the highest-risk traces once quota allowed:
+**Regression check: complete. All 10 traces re-verified against the structural-fix prompt, zero unexplained regressions.**
 
 - `stale_plan_tier`: 3/3 correct
 - `outdated_permission_role`: 1/3 correct (2 errored)
 - `clean_success_refund`: 2/2 correct — **zero false positives**
 - `clean_success_flight`: 2/2 correct — **zero false positives**
-- `silent_wrong_default`: 0/2 — still picks step 1 over the labeled step 3, identical to its pre-fix behavior. Not a new regression, just confirmation the fix doesn't happen to resolve this known disagreement either.
+- `silent_wrong_default`: 0/2 — still picks step 1 over the labeled step 3, identical to its pre-fix behavior. Not a regression from the fix; a pre-existing, well-understood, defensible disagreement (see above) that the fix neither caused nor happened to resolve.
 - `timezone_assumption`: 2/2 correct
 - `misread_units`: 3/3 correct
 - `duplicate_entity_confusion`: 2/2 correct
 - `compounding_rounding_error`: 2/2 correct — including the deliberately hard case (no explicit contradiction to anchor to)
+- `misattributed_source`: 2/2 correct
 
-19 completed calls across 9 of 10 traces, no new regressions anywhere — including both clean/false-positive traces, where a new false positive was the real risk of adding the claims-extraction step. Only `misattributed_source` still has zero post-fix data (every attempted call has errored, across two separate sessions now). Full data: [output/benchmark_report_v2_structural_fix.json](output/benchmark_report_v2_structural_fix.json), [output/benchmark_report_v2_priority.json](output/benchmark_report_v2_priority.json), [output/benchmark_report_v2_remaining5.json](output/benchmark_report_v2_remaining5.json), and [output/benchmark_report_v2_final2.json](output/benchmark_report_v2_final2.json).
+**21 completed calls across all 10 traces: 19 correct (90%), with the 2 "misses" both being the same single known edge case, not scattered noise.** Both traces that mattered most for regression risk — the two clean/false-positive tests — came back with zero false positives. Full run-by-run data across every session: [output/benchmark_report_v2_structural_fix.json](output/benchmark_report_v2_structural_fix.json), [output/benchmark_report_v2_priority.json](output/benchmark_report_v2_priority.json), [output/benchmark_report_v2_remaining5.json](output/benchmark_report_v2_remaining5.json), [output/benchmark_report_v2_final2.json](output/benchmark_report_v2_final2.json), and [output/benchmark_report_v2_lasttrace.json](output/benchmark_report_v2_lasttrace.json).
+
+**Where this leaves the project:** the structural fix for prose-buried contradictions is real, tested against the trace that originally exposed it, and confirmed not to have broken anything else across the full ground-truth set. `silent_wrong_default` remains the one open, named limitation — not hidden, not averaged away.
 
 ## Where this goes next
 
-- **Finish the regression check** on the last trace. `python3 run_benchmark.py 3 --only "misattributed_source.json"` picks up wherever quota allows next — this is the one thing left before the fix counts as fully verified.
-- **Capture more real traces**, ideally ones that fail more obviously than this one (a genuine crash, not just a subtle prose contradiction), to see whether the fix generalizes beyond "long + prose-buried."
+- **Capture more real traces**, ideally ones that fail more obviously than the protein-folding one (a genuine crash, not just a subtle prose contradiction), to see how far the fix generalizes beyond "long + prose-buried."
+- **Decide on `silent_wrong_default`**: accept it as a legitimate alternate reading (traces without an explicit later contradiction have a wider band of defensible answers), or extend the judge prompt to also weigh "did the agent ignore an explicit warning" as its own signal.
+- **Even out the sample sizes** on the synthetic benchmark. 1-3 real calls on some traces vs. 11 on others is a real limitation of "run until the free tier stops you" — more balanced runs (or a paid tier) would tighten this into a number worth quoting more precisely.
 - **Even out the sample sizes** on the synthetic benchmark. 1-3 real calls on some traces vs. 11 on others is a real limitation of "run until the free tier stops you" — more balanced runs (or a paid tier) would tighten this into an actual number worth quoting.
 - **Adapters** for real trace formats (OpenTelemetry GenAI spans, LangSmith exports, raw OpenAI/Anthropic tool-use logs) instead of the hand-rolled JSON schema.
 - **A pytest-style regression harness**: turn each diagnosed failure into a fixture that re-runs automatically, so a fixed bug that regresses gets caught in CI instead of production.

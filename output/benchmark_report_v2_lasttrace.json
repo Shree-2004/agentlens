@@ -1,0 +1,46 @@
+{
+  "n_runs_per_trace": 3,
+  "n_traces": 1,
+  "total_completed_runs": 2,
+  "total_errored_runs": 1,
+  "overall_accuracy": 1.0,
+  "false_positive_count": 0,
+  "false_negative_count": 0,
+  "per_trace": [
+    {
+      "trace": "misattributed_source.json",
+      "expected_step": 5,
+      "expected_has_failure": true,
+      "notes": "Two retrieved documents conflict; the agent relies on the one marked legacy/superseded instead of the current one it already has.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 5,
+          "predicted_category": "stale_fact",
+          "predicted_summary": "The agent relied on a legacy membership policy explicitly marked as superseded rather than the current shipping policy requiring a $75 minimum.",
+          "correct": true,
+          "error": null
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": null,
+          "error": "gemini judge call failed after retries"
+        },
+        {
+          "run": 3,
+          "predicted_step": 5,
+          "predicted_category": "stale_fact",
+          "predicted_summary": "The agent relied on a superseded legacy policy rather than the current shipping policy that explicitly overrides membership perks.",
+          "correct": true,
+          "error": null
+        }
+      ],
+      "errored_runs": 1,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    }
+  ]
+}
