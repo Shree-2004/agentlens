@@ -2,6 +2,8 @@
 
 A trace debugger for AI agents. Point it at a failed run, get back the exact step where things went wrong — and why — instead of reading raw JSON logs.
 
+Want the 30-second version before reading further? Open [demo.html](demo.html) in a browser — a self-contained, self-playing walkthrough of AgentLens catching the real contradiction described below, no server or install required.
+
 ## The problem
 
 Agent debugging doesn't look like normal software debugging. When a deterministic service breaks, you get a stack trace. When an agent breaks, you get a confident, well-formatted, silently wrong answer — and the actual mistake is often buried many steps before the bad output appears. A wrong final answer at step 15 is frequently caused by a bad assumption locked in at step 3.
@@ -30,6 +32,8 @@ Two layers, run in sequence:
 ## Running it
 
 ```bash
+git clone https://github.com/Shree-2004/agentlens.git
+cd agentlens
 pip install -r requirements.txt
 
 # either works -- the judge auto-detects whichever key is set

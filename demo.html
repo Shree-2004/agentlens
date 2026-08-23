@@ -1,0 +1,486 @@
+<title>AgentLens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F5F2EA;
+    --surface: #FFFFFF;
+    --ink: #1C1A16;
+    --ink-dim: #6B665C;
+    --ink-faint: #A29C8E;
+    --amber: #B5730A;
+    --amber-bg: #F4E6CE;
+    --teal: #1B7A6C;
+    --teal-bg: #DCEEE9;
+    --line: #DDD7C9;
+    --mono-bg: #EFEAE0;
+    --mono-bg-2: #E7E0D2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15171D;
+      --surface: #1D2027;
+      --ink: #EDE9E1;
+      --ink-dim: #9B968A;
+      --ink-faint: #635F56;
+      --amber: #E8A33D;
+      --amber-bg: #3A2C11;
+      --teal: #5FC4B0;
+      --teal-bg: #123330;
+      --line: #2C3038;
+      --mono-bg: #10121A;
+      --mono-bg-2: #191C25;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #15171D;
+    --surface: #1D2027;
+    --ink: #EDE9E1;
+    --ink-dim: #9B968A;
+    --ink-faint: #635F56;
+    --amber: #E8A33D;
+    --amber-bg: #3A2C11;
+    --teal: #5FC4B0;
+    --teal-bg: #123330;
+    --line: #2C3038;
+    --mono-bg: #10121A;
+    --mono-bg-2: #191C25;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+  }
+
+  .rig {
+    width: 100%;
+    max-width: 780px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface);
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+
+  .topbar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.85rem 1.1rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar .name {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: -0.01em;
+  }
+  .topbar .tagline {
+    font-size: 0.78rem;
+    color: var(--ink-dim);
+  }
+
+  .dots {
+    display: flex;
+    gap: 0.4rem;
+    padding: 0 1.1rem;
+    margin-top: 0.7rem;
+  }
+  .dots span {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--line);
+    transition: background 0.3s ease, transform 0.3s ease;
+  }
+  .screen[data-phase="hero"]     .dots span:nth-child(1),
+  .screen[data-phase="terminal"] .dots span:nth-child(2),
+  .screen[data-phase="claims"]   .dots span:nth-child(3),
+  .screen[data-phase="verdict"]  .dots span:nth-child(4),
+  .screen[data-phase="timeline"] .dots span:nth-child(5) {
+    background: var(--amber);
+    transform: scale(1.4);
+  }
+
+  .screen {
+    position: relative;
+    height: 420px;
+    padding: 1.1rem;
+  }
+  .act {
+    position: absolute;
+    inset: 0;
+    padding: 1.4rem 1.1rem 1.1rem;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+  }
+  .screen[data-phase="hero"]     .act-hero,
+  .screen[data-phase="terminal"] .act-terminal,
+  .screen[data-phase="claims"]   .act-claims,
+  .screen[data-phase="verdict"]  .act-verdict,
+  .screen[data-phase="timeline"] .act-timeline {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ---- hero ---- */
+  .act-hero { justify-content: center; align-items: flex-start; gap: 0.9rem; }
+  .act-hero h1 {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 700;
+    font-size: clamp(2rem, 6vw, 2.7rem);
+    margin: 0;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  .act-hero p {
+    font-size: 1rem;
+    line-height: 1.55;
+    color: var(--ink-dim);
+    max-width: 46ch;
+    margin: 0;
+  }
+  .fault {
+    width: 100%;
+    max-width: 420px;
+    height: 22px;
+    margin-top: 0.3rem;
+  }
+  .fault path {
+    fill: none;
+    stroke: var(--amber);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-dasharray: 340;
+    stroke-dashoffset: 340;
+  }
+  .screen[data-phase="hero"] .fault path { animation: draw 1.6s 0.3s ease forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+
+  /* ---- terminal ---- */
+  .term {
+    background: var(--mono-bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .term-bar {
+    padding: 0.5rem 0.75rem;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.7rem;
+    color: var(--ink-faint);
+    border-bottom: 1px solid var(--line);
+    background: var(--mono-bg-2);
+  }
+  .term-body {
+    padding: 0.9rem 0.9rem 1rem;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.78rem;
+    line-height: 1.65;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .cmd-line { color: var(--ink); }
+  .cmd-line .prompt { color: var(--teal); }
+  .cmd-line .txt {
+    display: inline-block;
+    max-width: 0;
+    overflow: hidden;
+    vertical-align: bottom;
+    white-space: nowrap;
+  }
+  .cmd-line.run .txt { animation: type 2.1s steps(58, end) forwards; }
+  @keyframes type { to { max-width: 42ch; } }
+  .out {
+    opacity: 0;
+    white-space: pre-wrap;
+    color: var(--ink-dim);
+  }
+  .out.crit { color: var(--amber); font-weight: 600; }
+  .out.file { color: var(--teal); }
+  .cmd-line.run + .out { animation: fadein 0.4s 2.3s ease forwards; }
+  .cmd-line.run ~ .out.l2 { animation-delay: 2.9s; }
+  .cmd-line.run ~ .out.l3 { animation-delay: 4.3s; }
+  @keyframes fadein { to { opacity: 1; } }
+
+  /* ---- claims ---- */
+  .act-claims { gap: 0.6rem; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+  }
+  .claims-list {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.74rem;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    gap: 0.34rem;
+    overflow: hidden;
+  }
+  .claim { display: flex; gap: 0.6rem; opacity: 0; transform: translateX(-4px); }
+  .claim .step { color: var(--ink-faint); flex-shrink: 0; width: 2.6em; }
+  .claim .text { color: var(--ink-dim); }
+  .claim.break .step, .claim.break .text { color: var(--amber); font-weight: 600; }
+  .claim.break { border-left: 2px solid var(--amber); padding-left: 0.5rem; margin-left: -0.6rem; background: var(--amber-bg); border-radius: 0 3px 3px 0; }
+  .screen[data-phase="claims"] .claim { animation: rise 0.4s ease forwards; }
+  .screen[data-phase="claims"] .claim:nth-child(1) { animation-delay: 0.1s; }
+  .screen[data-phase="claims"] .claim:nth-child(2) { animation-delay: 0.5s; }
+  .screen[data-phase="claims"] .claim:nth-child(3) { animation-delay: 0.9s; }
+  .screen[data-phase="claims"] .claim:nth-child(4) { animation-delay: 1.3s; }
+  .screen[data-phase="claims"] .claim:nth-child(5) { animation-delay: 1.7s; }
+  .screen[data-phase="claims"] .claim:nth-child(6) { animation-delay: 2.3s; }
+  .screen[data-phase="claims"] .claim:nth-child(7) { animation-delay: 2.9s; }
+  @keyframes rise { to { opacity: 1; transform: translateX(0); } }
+  .verdict-line {
+    margin-top: auto;
+    font-size: 0.78rem;
+    color: var(--ink-dim);
+    opacity: 0;
+  }
+  .screen[data-phase="claims"] .verdict-line { animation: fadein 0.5s 3.6s ease forwards; }
+  .verdict-line b { color: var(--amber); font-weight: 600; }
+
+  /* ---- verdict ---- */
+  .act-verdict { justify-content: center; gap: 0.6rem; }
+  .vcard {
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .vrow {
+    display: flex;
+    gap: 1rem;
+    padding: 0.55rem 0.9rem;
+    font-size: 0.8rem;
+    border-bottom: 1px solid var(--line);
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  .vrow:last-child { border-bottom: none; }
+  .vrow .k {
+    font-family: "IBM Plex Mono", monospace;
+    color: var(--ink-faint);
+    width: 8.5em;
+    flex-shrink: 0;
+  }
+  .vrow .v { color: var(--ink); }
+  .vrow.crit .v { color: var(--amber); font-weight: 600; }
+  .vrow .v.summary { color: var(--ink-dim); line-height: 1.5; }
+  .screen[data-phase="verdict"] .vrow { animation: rise 0.4s ease forwards; }
+  .screen[data-phase="verdict"] .vrow:nth-child(1) { animation-delay: 0.1s; }
+  .screen[data-phase="verdict"] .vrow:nth-child(2) { animation-delay: 0.45s; }
+  .screen[data-phase="verdict"] .vrow:nth-child(3) { animation-delay: 0.8s; }
+  .screen[data-phase="verdict"] .vrow:nth-child(4) { animation-delay: 1.15s; }
+  .screen[data-phase="verdict"] .vrow:nth-child(5) { animation-delay: 1.5s; }
+
+  /* ---- timeline ---- */
+  .act-timeline { justify-content: center; gap: 1rem; }
+  .tl-cap { font-size: 0.78rem; color: var(--ink-dim); }
+  .tl-cap b { color: var(--ink); }
+  .tl-track {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 40px;
+  }
+  .tl-seg { flex: 1; height: 2px; background: var(--teal); opacity: 0.5; }
+  .tl-tick {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--teal);
+    flex-shrink: 0;
+    z-index: 1;
+    box-shadow: 0 0 0 3px var(--surface);
+  }
+  .tl-tick.crit {
+    background: var(--amber);
+    width: 13px; height: 13px;
+    transform: scale(0);
+  }
+  .tl-tick.tainted { background: var(--ink-faint); }
+  .screen[data-phase="timeline"] .tl-tick.crit { animation: pop 0.4s 0.6s cubic-bezier(.34,1.56,.64,1) forwards; }
+  @keyframes pop { to { transform: scale(1); } }
+  .tl-crack {
+    position: absolute;
+    top: -14px;
+    left: var(--crack-x, 68%);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.68rem;
+    color: var(--amber);
+    white-space: nowrap;
+    opacity: 0;
+  }
+  .screen[data-phase="timeline"] .tl-crack { animation: fadein 0.5s 1.1s ease forwards; }
+  .tl-legend {
+    display: flex;
+    gap: 1.4rem;
+    font-size: 0.72rem;
+    color: var(--ink-dim);
+  }
+  .tl-legend span { display: flex; align-items: center; gap: 0.35rem; }
+  .sw { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .sw.ok { background: var(--teal); }
+  .sw.crit { background: var(--amber); }
+  .sw.tainted { background: var(--ink-faint); }
+
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 1.6rem;
+    padding: 0.85rem 1.1rem;
+    border-top: 1px solid var(--line);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    color: var(--ink-dim);
+  }
+  .stats b { color: var(--ink); font-weight: 600; }
+  .stats a { color: var(--teal); text-decoration: none; margin-left: auto; }
+  .stats a:hover { text-decoration: underline; }
+  .stats a:focus-visible, a:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+  @media (max-width: 520px) {
+    .screen { height: 480px; }
+    .vrow .k { width: 6.5em; font-size: 0.72rem; }
+    .stats a { margin-left: 0; }
+  }
+</style>
+
+<div class="rig">
+  <div class="topbar">
+    <span class="name">AgentLens</span>
+    <span class="tagline">finding the step where reasoning broke</span>
+  </div>
+  <div class="dots"><span></span><span></span><span></span><span></span><span></span></div>
+
+  <div class="screen" data-phase="hero" id="screen">
+
+    <section class="act act-hero">
+      <h1>Most evals grade<br>the final answer.</h1>
+      <svg class="fault" viewBox="0 0 420 22" aria-hidden="true">
+        <path d="M0,11 L170,11 L182,3 L194,19 L206,3 L218,19 L230,11 L420,11" />
+      </svg>
+      <p>This finds the step upstream of it — where a real AI agent's reasoning actually went wrong.</p>
+    </section>
+
+    <section class="act act-terminal">
+      <div class="term">
+        <div class="term-bar">shree@agentlens — real trace, no known answer</div>
+        <div class="term-body"><span class="cmd-line" id="cmdline"><span class="prompt">$ </span><span class="txt">python3 analyze.py real_traces/multi_agent_research_live.json</span></span>
+<span class="out crit">Critical step: 15 (contradicted_assumption, high confidence, via judge)</span>
+<span class="out l2">In step 15, the critic incorrectly asserted the 2024 Nobel Prizes</span>
+<span class="out l2">had not yet been announced — contradicting the report's own facts.</span>
+<span class="out file l3">Wrote diagnosis to output/diagnosis.json</span></div>
+      </div>
+    </section>
+
+    <section class="act act-claims">
+      <span class="eyebrow">Pass 1 — before judging anything, extract every checkable claim</span>
+      <div class="claims-list">
+        <div class="claim"><span class="step">[03]</span><span class="text">search result: "AI cracked the protein folding code and won a Nobel Prize"</span></div>
+        <div class="claim"><span class="step">[10]</span><span class="text">Hassabis, Jumper &amp; Baker were awarded the 2024 Nobel Prize in Chemistry</span></div>
+        <div class="claim"><span class="step">[11]</span><span class="text">the 2024 Nobel Prize in Chemistry was awarded to Hassabis, Jumper &amp; Baker</span></div>
+        <div class="claim"><span class="step">[13]</span><span class="text">the 2024 Nobel Prize in Chemistry was awarded to Hassabis, Jumper &amp; Baker</span></div>
+        <div class="claim"><span class="step">[14]</span><span class="text">the 2024 Nobel Prize in Chemistry was awarded to Hassabis, Jumper &amp; Baker</span></div>
+        <div class="claim break"><span class="step">[15]</span><span class="text">"the 2024 Nobel Prizes have not yet been announced"</span></div>
+        <div class="claim"><span class="step">[16]</span><span class="text">the 2024 Nobel Prize in Chemistry was awarded to Hassabis, Jumper &amp; Baker</span></div>
+      </div>
+      <p class="verdict-line">Step 15 directly contradicts four earlier steps. <b>That's the break.</b></p>
+    </section>
+
+    <section class="act act-verdict">
+      <div class="vcard">
+        <div class="vrow"><span class="k">has_failure</span><span class="v">true</span></div>
+        <div class="vrow crit"><span class="k">critical_step</span><span class="v">15 — where the false claim was introduced</span></div>
+        <div class="vrow"><span class="k">category</span><span class="v">contradicted_assumption</span></div>
+        <div class="vrow"><span class="k">confidence</span><span class="v">high</span></div>
+        <div class="vrow"><span class="k">summary</span><span class="v summary">"the critic incorrectly asserted the 2024 Nobel Prizes hadn't been announced — contradicting four earlier steps that already reported the award."</span></div>
+      </div>
+    </section>
+
+    <section class="act act-timeline">
+      <span class="tl-cap">17-step real trace · rule layer found nothing here · the judge found this</span>
+      <div class="tl-track" style="--crack-x: 70%;">
+        <div class="tl-seg"></div>
+        <div class="tl-tick"></div><div class="tl-seg"></div>
+        <div class="tl-tick"></div><div class="tl-seg"></div>
+        <div class="tl-tick"></div><div class="tl-seg"></div>
+        <div class="tl-tick"></div><div class="tl-seg"></div>
+        <div class="tl-tick"></div><div class="tl-seg"></div>
+        <div class="tl-tick crit"></div><div class="tl-seg"></div>
+        <div class="tl-tick tainted"></div>
+        <span class="tl-crack">trajectory breaks here — step 15</span>
+      </div>
+      <div class="tl-legend">
+        <span><i class="sw ok"></i>verified</span>
+        <span><i class="sw crit"></i>critical step</span>
+        <span><i class="sw tainted"></i>downstream / tainted</span>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="stats">
+    <span><b>89%</b> benchmark accuracy</span>
+    <span><b>0</b> false positives</span>
+    <span><b>10</b> ground-truth traces</span>
+    <a href="https://github.com/Shree-2004/agentlens" target="_blank" rel="noopener">github.com/Shree-2004/agentlens</a>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var screen = document.getElementById('screen');
+    var cmd = document.getElementById('cmdline');
+    var phases = ['hero', 'terminal', 'claims', 'verdict', 'timeline'];
+    var durations = { hero: 3200, terminal: 6200, claims: 6800, verdict: 4800, timeline: 7200 };
+    var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function restart(el) {
+      el.classList.remove('run');
+      void el.offsetWidth;
+      el.classList.add('run');
+    }
+
+    function setPhase(name) {
+      screen.setAttribute('data-phase', name);
+      if (name === 'terminal') restart(cmd);
+    }
+
+    if (reduced) {
+      setPhase('timeline');
+      return;
+    }
+
+    var i = 0;
+    setPhase(phases[0]);
+    function tick() {
+      i = (i + 1) % phases.length;
+      setPhase(phases[i]);
+      setTimeout(tick, durations[phases[i]]);
+    }
+    setTimeout(tick, durations[phases[0]]);
+  })();
+</script>
