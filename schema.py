@@ -84,6 +84,12 @@ class Diagnosis:
     findings: list[Finding]
     critical_step: Optional[int]
     critical_finding: Optional[Finding]
+    # The judge's PASS 1 output: every concrete claim it pulled out of the
+    # trace, tagged by step ({"step": int, "claim": str}). Carried through to
+    # the diagnosis so the verdict can be audited against the evidence it was
+    # drawn from, rather than taken on the strength of one summary sentence.
+    # Empty when the judge was skipped or no key was set.
+    claims: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -93,4 +99,5 @@ class Diagnosis:
             "findings": [vars(f) for f in self.findings],
             "critical_step": self.critical_step,
             "critical_finding": vars(self.critical_finding) if self.critical_finding else None,
+            "claims": self.claims,
         }

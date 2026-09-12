@@ -102,20 +102,22 @@ def _parse_verdict(text: str) -> dict:
     return json.loads(text)
 
 
-def _call_anthropic(user_prompt: str, api_key: str, model: str) -> str:
+def _call_anthropic(
+    user_prompt: str, api_key: str, model: str, system_prompt: str = JUDGE_SYSTEM_PROMPT, max_tokens: int = 1024
+) -> str:
     import anthropic
 
     client = anthropic.Anthropic(api_key=api_key)
     response = client.messages.create(
         model=model,
-        max_tokens=1024,
-        system=JUDGE_SYSTEM_PROMPT,
+        max_tokens=max_tokens,
+        system=system_prompt,
         messages=[{"role": "user", "content": user_prompt}],
     )
     return response.content[0].text
 
 
-def _call_gemini(user_prompt: str, api_key: str, model: str) -> str:
+def _call_gemini(user_prompt: str, api_key: str, model: str, system_prompt: str = JUDGE_SYSTEM_PROMPT) -> str:
     from google import genai
     from google.genai import types
 
@@ -123,7 +125,7 @@ def _call_gemini(user_prompt: str, api_key: str, model: str) -> str:
     response = client.models.generate_content(
         model=model,
         contents=user_prompt,
-        config=types.GenerateContentConfig(system_instruction=JUDGE_SYSTEM_PROMPT),
+        config=types.GenerateContentConfig(system_instruction=system_prompt),
     )
     return response.text
 
@@ -196,20 +198,7 @@ def run_judge_raw(trace: Trace, provider: str | None = None, model: str | None =
         raise JudgeUnavailableError(f"{chosen} judge returned an unparseable response: {e}") from e
 
 
-def run_judge(trace: Trace, provider: str | None = None, model: str | None = None) -> list[Finding]:
-    """Calls an LLM once with the full trajectory to check for state corruption.
-
-    `provider` picks which API to use ("anthropic" or "gemini"); if omitted,
-    picks whichever of ANTHROPIC_API_KEY / GOOGLE_API_KEY is set (Anthropic
-    first). Returns [] if no key is set at all -- that's a deliberate
-    "judge disabled" state, not a failure. Raises JudgeUnavailableError if a
-    key IS set but the call failed or the response couldn't be parsed, so
-    callers don't mistake "the API broke" for "the judge found nothing."
-    """
-    verdict = run_judge_raw(trace, provider=provider, model=model)
-    if verdict is None:
-        return []
-
+def _verdict_to_findings(verdict: dict) -> list[Finding]:
     if not verdict.get("has_failure"):
         return []
 
@@ -223,3 +212,38 @@ def run_judge(trace: Trace, provider: str | None = None, model: str | None = Non
             detail="; ".join(verdict.get("contradictions", [])),
         )
     ]
+
+
+def run_judge_with_claims(
+    trace: Trace, provider: str | None = None, model: str | None = None
+) -> tuple[list[Finding], list[dict]]:
+    """Same call as run_judge, but also returns the PASS 1 claims.
+
+    The claims array is the evidence the extraction pass actually ran --
+    it's what turned the real-trace miss into a catch, and a near-empty
+    list on a long trace is the tell that the judge skipped extraction and
+    answered from a single read. Flattening a verdict into one Finding
+    throws that away, so callers that want to show their work use this.
+
+    Claims come back even when has_failure is false: on a clean trace they
+    are the difference between "the judge checked and found nothing" and
+    "the judge returned nothing," which is the whole point of the
+    false-positive tests.
+    """
+    verdict = run_judge_raw(trace, provider=provider, model=model)
+    if verdict is None:
+        return [], []
+    return _verdict_to_findings(verdict), list(verdict.get("claims") or [])
+
+
+def run_judge(trace: Trace, provider: str | None = None, model: str | None = None) -> list[Finding]:
+    """Calls an LLM once with the full trajectory to check for state corruption.
+
+    `provider` picks which API to use ("anthropic" or "gemini"); if omitted,
+    picks whichever of ANTHROPIC_API_KEY / GOOGLE_API_KEY is set (Anthropic
+    first). Returns [] if no key is set at all -- that's a deliberate
+    "judge disabled" state, not a failure. Raises JudgeUnavailableError if a
+    key IS set but the call failed or the response couldn't be parsed, so
+    callers don't mistake "the API broke" for "the judge found nothing."
+    """
+    return run_judge_with_claims(trace, provider=provider, model=model)[0]

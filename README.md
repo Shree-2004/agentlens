@@ -21,7 +21,7 @@ Two layers, run in sequence:
 
 [analyze.py](analyze.py) merges both into one diagnosis, preferring the earliest high-confidence finding — because the upstream root cause matters more than the downstream symptom.
 
-[output/viewer.html](output/viewer.html) renders the diagnosis as a timeline that visually "breaks" at the critical failure step, so you can see at a glance where a 15-step trajectory actually went wrong.
+[output/viewer.html](output/viewer.html) renders the diagnosis as a timeline that visually "breaks" at the critical failure step, so you can see at a glance where a 15-step trajectory actually went wrong. It also renders the judge's extracted claims underneath the step each one came from — the verdict and the evidence it was drawn from, in one view. See "Showing the judge's work" below.
 
 [check_consistency.py](check_consistency.py) runs the judge N times on the same trace and reports whether it lands on the same critical step every time — a single convincing-sounding diagnosis proves nothing on its own, since a fluent explanation and a correct one look identical unless you check reproducibility.
 
@@ -50,7 +50,7 @@ A `.env` file in the project root (gitignored) also works, via `python-dotenv`.
 
 **Gemini free tier note:** `generativelanguage.googleapis.com` caps free-tier usage at **20 requests/day per Google Cloud project per model**. The full benchmark (10 traces × 3 runs = 30 calls) doesn't fit in one day on a fresh free-tier project — plan accordingly, or use `--provider anthropic` (paid, no free daily cap) if you need it to finish in one sitting.
 
-Then open `output/viewer.html` in a browser (edit the `DATA_URL` constant at the top of the `<script>` block to point at whatever diagnosis file you want to look at). Browsers block `fetch()` against files opened directly from disk, so serve the folder instead:
+Then open `output/viewer.html` in a browser. It defaults to [real_traces/multi_agent_research_live_diagnosis.json](real_traces/multi_agent_research_live_diagnosis.json) — the real Nobel Prize catch, described below — so it shows something real with no API key; edit the `DATA_URL` constant at the top of the `<script>` block to point at any other diagnosis file. Browsers block `fetch()` against files opened directly from disk, so serve the folder instead:
 
 ```bash
 python3 -m http.server
@@ -64,6 +64,25 @@ The other 10 traces are the hand-labeled ground-truth set (`sample_traces/ground
 ## Trace format
 
 Traces are plain JSON: a task description plus an ordered list of steps (`reasoning` / `tool_call` / `tool_result` / `final_answer`). See [schema.py](schema.py). This is intentionally close to OpenTelemetry's GenAI semantic conventions, so real logs from LangChain, a custom agent loop, etc. can be adapted into it without much friction.
+
+## Showing the judge's work
+
+The structural fix that made the judge catch the real contradiction was requiring a `claims` array in its output — every concrete, checkable claim pulled from each step, tagged by step, emitted *before* the verdict. That array is the evidence extraction actually ran: a near-empty claims list on a long trace is the tell that the judge skipped the pass and answered from a single read.
+
+It used to be thrown away. `run_judge` flattened the verdict into one `Finding` and dropped everything else, so the only way to see claims was [debug_judge.py](debug_judge.py) making a second, separate API call. The demo animated claims the real viewer couldn't display.
+
+Claims now travel all the way through: `run_judge_with_claims` returns them alongside the findings, `Diagnosis.claims` carries them, and the viewer renders each one under the step it came from, with a count of how many steps the judge actually extracted from. The verdict and its evidence sit in the same view.
+
+Two details that matter:
+
+- **Claims come back even when `has_failure` is false.** On the clean traces, they're the difference between *"the judge checked and found nothing"* and *"the judge returned nothing"* — which is the entire point of the false-positive tests.
+- **`run_judge`'s signature is unchanged**, so `check_consistency.py` and `run_benchmark.py` are untouched.
+
+What this looks like on the real trace: step 15 renders red as the critical step, carrying the Critic's claim *"The 2024 Nobel Prizes have not yet been announced"* — directly under the green steps above it that carry the four correct statements that the prize **was** awarded. The contradiction is visible as two claims on the page rather than a sentence asserting one exists.
+
+```bash
+python3 test_claims_plumbing.py   # 18 checks, stubbed verdicts, no API call
+```
 
 ## Importing traces from Langfuse
 

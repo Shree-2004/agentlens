@@ -158,6 +158,59 @@
     line-height: 1.4;
   }
 
+  /* The judge's PASS 1 extraction, shown under the step each claim came
+     from. This is the audit trail for the verdict: a long trace with a
+     near-empty claims list means extraction was skipped and the answer
+     came from one read, which is exactly the failure the structural fix
+     was built to make visible. */
+  .evidence-bar {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin: -1.1rem 0 1.5rem;
+  }
+  .evidence-bar .count { font-weight: 600; color: var(--accent); }
+  .evidence-bar button {
+    font: inherit;
+    color: var(--accent);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  .claims { margin-top: 0.5rem; border-top: 1px dashed var(--border); padding-top: 0.45rem; }
+  .claims.hidden { display: none; }
+  .claims .claims-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-dim);
+    margin-bottom: 0.3rem;
+  }
+  .claim {
+    position: relative;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: var(--text-dim);
+    padding-left: 0.85rem;
+    margin-bottom: 0.2rem;
+  }
+  .claim::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.52em;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .step.critical .claim, .step.tainted .claim { color: var(--text); }
+  .orphan-claims { margin-top: 1rem; }
+
   .break-marker {
     position: relative;
     margin: -0.15rem 0 0.7rem;
@@ -210,6 +263,7 @@
   </header>
 
   <div id="summary"></div>
+  <div id="evidence" class="evidence-bar" style="display:none;"></div>
   <div id="timeline" class="timeline"></div>
   <div id="findings" class="findings-panel" style="display:none;">
     <h2>All findings</h2>
@@ -220,7 +274,7 @@
 <script>
   // Point this at whatever diagnosis JSON you want to inspect, relative to
   // this file. analyze.py writes files in exactly this shape.
-  const DATA_URL = "../sample_traces/stale_plan_tier_with_judge_example.json";
+  const DATA_URL = "../real_traces/multi_agent_research_live_diagnosis.json";
 
   function badge(text, cls) {
     const span = document.createElement("span");
@@ -257,6 +311,50 @@
     }
     summary.appendChild(card);
 
+    // Group the judge's extracted claims by the step each came from, so a
+    // verdict can be read against its evidence instead of taken on trust.
+    const claims = diag.claims || [];
+    const claimsByStep = new Map();
+    claims.forEach((c) => {
+      if (!claimsByStep.has(c.step)) claimsByStep.set(c.step, []);
+      claimsByStep.get(c.step).push(c.claim);
+    });
+
+    if (claims.length) {
+      const bar = document.getElementById("evidence");
+      bar.style.display = "flex";
+      const count = document.createElement("span");
+      count.className = "count";
+      count.textContent = claims.length + (claims.length === 1 ? " claim" : " claims");
+      const label = document.createElement("span");
+      label.textContent = `extracted from ${claimsByStep.size} of ${diag.steps.length} steps before the verdict`;
+      const toggle = document.createElement("button");
+      toggle.textContent = "hide";
+      toggle.addEventListener("click", () => {
+        const blocks = document.querySelectorAll(".claims");
+        const hiding = toggle.textContent === "hide";
+        blocks.forEach((b) => b.classList.toggle("hidden", hiding));
+        toggle.textContent = hiding ? "show" : "hide";
+      });
+      bar.append(count, label, toggle);
+    }
+
+    function claimsBlock(list) {
+      const box = document.createElement("div");
+      box.className = "claims";
+      const label = document.createElement("div");
+      label.className = "claims-label";
+      label.textContent = list.length === 1 ? "1 claim extracted" : `${list.length} claims extracted`;
+      box.appendChild(label);
+      list.forEach((text) => {
+        const row = document.createElement("div");
+        row.className = "claim";
+        row.textContent = text;
+        box.appendChild(row);
+      });
+      return box;
+    }
+
     const timeline = document.getElementById("timeline");
     const criticalIdx = cf ? cf.step_index : null;
 
@@ -284,8 +382,20 @@
         <div class="step-text"></div>
       `;
       el.querySelector(".step-text").textContent = step.text;
+      if (claimsByStep.has(step.index)) el.appendChild(claimsBlock(claimsByStep.get(step.index)));
       timeline.appendChild(el);
     });
+
+    // A claim tagged with a step that isn't in the trace still has to be
+    // shown: silently dropping it would hide the judge citing something
+    // that doesn't exist, which is a signal worth seeing, not a glitch.
+    const stepIndices = new Set(diag.steps.map((s) => s.index));
+    const orphans = claims.filter((c) => !stepIndices.has(c.step));
+    if (orphans.length) {
+      const box = claimsBlock(orphans.map((c) => `(step ${c.step}, not in trace) ${c.claim}`));
+      box.classList.add("orphan-claims");
+      timeline.appendChild(box);
+    }
 
     if (diag.findings && diag.findings.length) {
       document.getElementById("findings").style.display = "block";

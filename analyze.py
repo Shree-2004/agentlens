@@ -14,7 +14,7 @@ import json
 
 from dotenv import load_dotenv
 
-from judge import JudgeUnavailableError, run_judge
+from judge import JudgeUnavailableError, run_judge_with_claims
 from rules import run_rules
 from schema import Diagnosis, Finding, Trace, rank_key
 
@@ -40,9 +40,11 @@ def merge_findings(findings: list[Finding]) -> Finding | None:
 
 def diagnose(trace: Trace, use_judge: bool = True, provider: str | None = None) -> Diagnosis:
     findings = run_rules(trace)
+    claims: list[dict] = []
     if use_judge:
         try:
-            findings.extend(run_judge(trace, provider=provider))
+            judge_findings, claims = run_judge_with_claims(trace, provider=provider)
+            findings.extend(judge_findings)
         except JudgeUnavailableError as e:
             print(f"judge unavailable, continuing with rules-only findings: {e}")
     findings.sort(key=lambda f: f.step_index)
@@ -55,6 +57,7 @@ def diagnose(trace: Trace, use_judge: bool = True, provider: str | None = None) 
         findings=findings,
         critical_step=critical.step_index if critical else None,
         critical_finding=critical,
+        claims=claims,
     )
 
 
