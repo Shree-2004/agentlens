@@ -61,6 +61,8 @@
   .wrap { max-width: 780px; margin: 0 auto; }
 
   header h1 { font-size: 1.3rem; margin: 0 0 0.15rem; }
+  header h1 .navlink { font-size: 0.8rem; font-weight: 500; color: var(--accent); text-decoration: none; margin-left: 0.6rem; }
+  header h1 .navlink:hover { text-decoration: underline; }
   header .task { color: var(--text-dim); font-size: 0.92rem; margin: 0 0 1.5rem; }
 
   .summary-card {
@@ -258,7 +260,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>AgentLens</h1>
+    <h1>AgentLens <a class="navlink" href="benchmark.html">Benchmark →</a></h1>
     <p class="task" id="task-line">Loading trace diagnosis…</p>
   </header>
 
@@ -272,9 +274,24 @@
 </div>
 
 <script>
-  // Point this at whatever diagnosis JSON you want to inspect, relative to
-  // this file. analyze.py writes files in exactly this shape.
-  const DATA_URL = "../real_traces/multi_agent_research_live_diagnosis.json";
+  // Which diagnosis to show, relative to this file. analyze.py writes files
+  // in exactly this shape. ?file=... overrides the default so you can point
+  // the viewer somewhere else without editing this constant.
+  const DEFAULT_DATA_URL = "../real_traces/multi_agent_research_live_diagnosis.json";
+
+  function requestedFile() {
+    const raw = new URLSearchParams(location.search).get("file");
+    if (!raw) return DEFAULT_DATA_URL;
+    // Same-origin only: an absolute URL or a protocol-relative one would let
+    // a crafted link render someone else's JSON inside this page.
+    if (/^[a-z][a-z0-9+.-]*:/i.test(raw) || raw.startsWith("//")) {
+      console.warn("ignoring non-relative ?file= value");
+      return DEFAULT_DATA_URL;
+    }
+    return raw;
+  }
+
+  const DATA_URL = requestedFile();
 
   function badge(text, cls) {
     const span = document.createElement("span");

@@ -1,0 +1,39 @@
+{
+  "_comment": "Which benchmark reports belong together. Gemini's free-tier daily cap forced the benchmark to be run in fragments across many sessions, so no single report holds the full picture -- but runs from different judge prompt versions must never be pooled, since that would average away the exact signal the prompt change was made to test. This file makes that grouping reviewable data rather than a filename-prefix guess hidden in JavaScript. benchmark.html merges within an era and refuses to merge across.",
+  "eras": [
+    {
+      "id": "v2",
+      "label": "After the structural fix",
+      "prompt": "Judge prompt requires a \"claims\" array emitted before the verdict, forcing claim extraction to be a visible output rather than an internal instruction.",
+      "description": "The regression check: does requiring claim extraction, which fixed the real-trace miss, cost anything on the synthetic ground-truth set?",
+      "reports": [
+        "benchmark_report_v2_priority.json",
+        "benchmark_report_v2_structural_fix.json",
+        "benchmark_report_v2_remaining5.json",
+        "benchmark_report_v2_final2.json",
+        "benchmark_report_v2_lasttrace.json"
+      ]
+    },
+    {
+      "id": "v1",
+      "label": "Before the structural fix",
+      "prompt": "Original judge prompt, plus a later prose-only revision telling the judge contradictions can be prose-buried. Neither version required claims as output.",
+      "description": "A PARTIAL view, not the headline pre-fix number. These two reports cover only 5 of the 10 traces -- the ones still outstanding when they were run -- and they are weighted toward the hard cases, so the accuracy shown here is lower than the README's 40/45 (89%). That figure also counts runs recorded in output/consistency_*.json and in sessions that produced no benchmark report at all; those files carry no ground-truth label or per-run correctness, so they cannot be merged in here without re-scoring them.",
+      "partial": true,
+      "reports": [
+        "benchmark_report_remaining.json",
+        "benchmark_report_final.json"
+      ]
+    },
+    {
+      "id": "buggy-scorer",
+      "label": "Pre-bugfix scorer (do not trust the numbers)",
+      "prompt": "Original judge prompt.",
+      "description": "The first benchmark run, scored before judge.py distinguished JudgeUnavailableError from 'found nothing'. A failed API call was counted as the judge examining a trace and finding no failure -- which inflated false negatives and, on the clean traces, faked correct answers by coincidence. Kept deliberately: it is the recorded evidence of the silent-failure bug this project exists to catch, not a result.",
+      "untrustworthy": true,
+      "reports": [
+        "benchmark_report_v0_buggy_scorer.json"
+      ]
+    }
+  ]
+}

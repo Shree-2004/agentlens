@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentLens — Benchmark</title>
+<style>
+  :root {
+    --bg: #f7f7f8;
+    --panel: #ffffff;
+    --border: #e2e2e6;
+    --text: #1a1a1e;
+    --text-dim: #6b6b73;
+    --ok: #3a7d44;
+    --ok-bg: #eaf5ec;
+    --tainted: #9a6b00;
+    --tainted-bg: #fbf1dd;
+    --critical: #b3261e;
+    --critical-bg: #fbe9e7;
+    --accent: #4956e3;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17181c;
+      --panel: #202127;
+      --border: #33343b;
+      --text: #e8e8ea;
+      --text-dim: #97979f;
+      --ok: #6fcf7c;
+      --ok-bg: #1c2d1f;
+      --tainted: #e0b03a;
+      --tainted-bg: #33290f;
+      --critical: #ff6b60;
+      --critical-bg: #3a1c1a;
+      --accent: #8891f2;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17181c;
+    --panel: #202127;
+    --border: #33343b;
+    --text: #e8e8ea;
+    --text-dim: #97979f;
+    --ok: #6fcf7c;
+    --ok-bg: #1c2d1f;
+    --tainted: #e0b03a;
+    --tainted-bg: #33290f;
+    --critical: #ff6b60;
+    --critical-bg: #3a1c1a;
+    --accent: #8891f2;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    padding: 2rem 1.25rem 4rem;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+
+  header h1 { font-size: 1.3rem; margin: 0 0 0.15rem; }
+  header .sub { color: var(--text-dim); font-size: 0.92rem; margin: 0 0 1.25rem; }
+  header .sub a { color: var(--accent); }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1.25rem;
+  }
+  .controls label { font-size: 0.8rem; color: var(--text-dim); }
+  select {
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 0.3rem 0.5rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+  }
+
+  .era-note {
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    background: var(--panel);
+    border-radius: 8px;
+    padding: 0.8rem 1rem;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 1.25rem;
+    line-height: 1.5;
+  }
+  .era-note.untrustworthy { border-left-color: var(--critical); }
+  .era-note.partial { border-left-color: var(--tainted); }
+  .era-note .warn-tag {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--tainted);
+    background: var(--tainted-bg);
+    padding: 0.08rem 0.42rem;
+    border-radius: 999px;
+    margin-right: 0.45rem;
+  }
+  .era-note.untrustworthy .warn-tag { color: var(--critical); background: var(--critical-bg); }
+  .era-note strong { color: var(--text); }
+  .era-note .prompt { font-family: var(--mono); font-size: 0.78rem; display: block; margin-top: 0.4rem; }
+
+  .stats { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-bottom: 1.5rem; }
+  .stat {
+    flex: 1 1 150px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    border-radius: 10px;
+    padding: 0.8rem 0.95rem;
+  }
+  .stat .k {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-dim);
+    margin-bottom: 0.3rem;
+  }
+  .stat .v { font-size: 1.45rem; font-weight: 600; line-height: 1; }
+  .stat .n { font-size: 0.76rem; color: var(--text-dim); margin-top: 0.3rem; }
+  .stat.good .v { color: var(--ok); }
+  .stat.warn .v { color: var(--tainted); }
+  .stat.bad .v { color: var(--critical); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  thead th {
+    text-align: left;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-dim);
+    font-weight: 600;
+    padding: 0 0.55rem 0.45rem;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  thead th.num, tbody td.num { text-align: right; font-family: var(--mono); }
+  tbody td { padding: 0.55rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tbody tr.trace-row { cursor: pointer; }
+  tbody tr.trace-row:hover { background: var(--panel); }
+  tbody tr.perfect td.score { color: var(--ok); }
+  tbody tr.partial td.score { color: var(--tainted); }
+  tbody tr.failed td.score { color: var(--critical); }
+  tbody td.score { font-family: var(--mono); font-weight: 600; }
+  .tname { font-family: var(--mono); font-size: 0.8rem; }
+  .tnotes { color: var(--text-dim); font-size: 0.78rem; margin-top: 0.2rem; max-width: 34rem; line-height: 1.45; }
+  .caret { display: inline-block; width: 0.8rem; color: var(--text-dim); }
+
+  .runs-row td { background: var(--panel); padding: 0 0.55rem 0.8rem; }
+  .runs-row.hidden { display: none; }
+  .run {
+    border-left: 2px solid var(--border);
+    padding: 0.4rem 0 0.4rem 0.7rem;
+    margin-top: 0.45rem;
+    font-size: 0.8rem;
+    line-height: 1.45;
+  }
+  .run.ok { border-left-color: var(--ok); }
+  .run.miss { border-left-color: var(--critical); }
+  /* An errored run is not a wrong answer -- it is a call that never
+     completed. Conflating the two is the bug this benchmark was rebuilt
+     to avoid, so the UI keeps them visually distinct too. */
+  .run.errored { border-left-color: var(--text-dim); opacity: 0.75; }
+  .run .rhead { font-family: var(--mono); font-size: 0.76rem; color: var(--text-dim); margin-bottom: 0.15rem; }
+  .run .rsummary { color: var(--text); }
+  .run .rerror { color: var(--text-dim); font-family: var(--mono); font-size: 0.76rem; }
+  .pill {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 0.08rem 0.42rem;
+    border-radius: 999px;
+    margin-left: 0.35rem;
+  }
+  .pill.ok { background: var(--ok-bg); color: var(--ok); }
+  .pill.miss { background: var(--critical-bg); color: var(--critical); }
+  .pill.errored { background: var(--border); color: var(--text-dim); }
+  .pill.clean { background: rgba(73,86,227,0.14); color: var(--accent); }
+
+  .footnote {
+    margin-top: 1.75rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    line-height: 1.55;
+  }
+  .footnote code { font-family: var(--mono); background: var(--border); padding: 0.05rem 0.3rem; border-radius: 4px; }
+  .empty-state { color: var(--text-dim); font-size: 0.9rem; padding: 2rem 0; text-align: center; line-height: 1.6; }
+  .empty-state code { font-family: var(--mono); background: var(--border); padding: 0.05rem 0.35rem; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>AgentLens — Judge Benchmark</h1>
+    <p class="sub">Scored against <span class="tname">sample_traces/ground_truth.json</span>, hand-labeled before any judge run. <a href="viewer.html">Trace viewer →</a></p>
+  </header>
+
+  <div class="controls" id="controls" style="display:none;">
+    <label for="era-select">Prompt version</label>
+    <select id="era-select"></select>
+    <label for="report-select">Report</label>
+    <select id="report-select"></select>
+  </div>
+
+  <div id="era-note"></div>
+  <div id="stats" class="stats"></div>
+  <div id="table-host"></div>
+  <div id="footnote"></div>
+</div>
+
+<script>
+  const MANIFEST_URL = "benchmark_manifest.json";
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  /* Merge every run for a trace across the reports in one era.
+     Quota limits split the benchmark into fragments across sessions, so no
+     single report holds the whole set -- but merging only ever happens
+     within an era, never across prompt versions, because pooling those
+     would average away the exact difference the prompt change was made to
+     measure. */
+  function mergeReports(reports) {
+    const byTrace = new Map();
+    let completed = 0, correct = 0, errored = 0, fp = 0, fn = 0;
+
+    reports.forEach((report) => {
+      fp += report.false_positive_count || 0;
+      fn += report.false_negative_count || 0;
+
+      (report.per_trace || []).forEach((t) => {
+        if (!byTrace.has(t.trace)) {
+          byTrace.set(t.trace, {
+            trace: t.trace,
+            expected_step: t.expected_step,
+            expected_has_failure: t.expected_has_failure,
+            notes: t.notes,
+            runs: [],
+          });
+        }
+        const entry = byTrace.get(t.trace);
+        (t.runs || []).forEach((r) => {
+          entry.runs.push(r);
+          if (r.error) errored++;
+          else { completed++; correct += r.correct ? 1 : 0; }
+        });
+      });
+    });
+
+    const traces = [...byTrace.values()].map((t) => {
+      const done = t.runs.filter((r) => !r.error);
+      const votes = new Map();
+      done.forEach((r) => votes.set(r.predicted_step, (votes.get(r.predicted_step) || 0) + 1));
+      const top = [...votes.entries()].sort((a, b) => b[1] - a[1])[0];
+      return Object.assign(t, {
+        completed: done.length,
+        errored: t.runs.length - done.length,
+        correct: done.filter((r) => r.correct).length,
+        majority_step: top ? top[0] : null,
+        consistency: done.length ? top[1] / done.length : null,
+      });
+    });
+
+    traces.sort((a, b) => a.trace.localeCompare(b.trace));
+    return { traces, completed, correct, errored, fp, fn };
+  }
+
+  function stat(key, value, note, cls) {
+    const box = el("div", "stat " + (cls || ""));
+    box.appendChild(el("div", "k", key));
+    box.appendChild(el("div", "v", value));
+    if (note) box.appendChild(el("div", "n", note));
+    return box;
+  }
+
+  const GROUND_TRUTH_SIZE = 10;
+
+  function renderStats(m, era) {
+    const host = document.getElementById("stats");
+    host.textContent = "";
+
+    // On a flagged era, nothing gets the green "pass" treatment. A partial
+    // or known-bad set can still prove a problem exists -- a false positive
+    // is a false positive -- but it cannot prove one's absence, so a red
+    // tile stays red while a green one drops to neutral.
+    const flagged = era && (era.partial || era.untrustworthy);
+    const pass = (cls) => (flagged && cls === "good" ? "" : cls);
+
+    const pct = m.completed ? Math.round((m.correct / m.completed) * 100) + "%" : "—";
+    host.appendChild(stat("Accuracy", pct, `${m.correct}/${m.completed} completed runs`,
+      pass(m.completed && m.correct / m.completed >= 0.85 ? "good" : "warn")));
+
+    const covered = m.traces.length;
+    host.appendChild(stat("Traces covered", `${covered}/${GROUND_TRUTH_SIZE}`,
+      covered === GROUND_TRUTH_SIZE ? "the full labeled set" : "a subset of the labeled set",
+      pass(covered === GROUND_TRUTH_SIZE ? "good" : "warn")));
+
+    // Kept as its own tile on purpose: an errored run is an API call that
+    // never completed, not a judge verdict, and it is excluded from
+    // accuracy above rather than scored as "found nothing."
+    host.appendChild(stat("Errored runs", String(m.errored),
+      m.errored ? "API failures, excluded from accuracy" : "none",
+      pass(m.errored ? "warn" : "good")));
+
+    host.appendChild(stat("False positives", String(m.fp),
+      "clean trace flagged as failed", pass(m.fp ? "bad" : "good")));
+    host.appendChild(stat("False negatives", String(m.fn),
+      "real failure missed, judge did run", pass(m.fn ? "bad" : "good")));
+  }
+
+  function runBlock(run, expectedStep, expectsFailure) {
+    const cls = run.error ? "errored" : (run.correct ? "ok" : "miss");
+    const box = el("div", "run " + cls);
+
+    const head = el("div", "rhead");
+    head.textContent = `run ${run.run} · `;
+    if (run.error) {
+      head.append("never completed");
+      head.appendChild(pill("errored", "errored"));
+    } else {
+      const predicted = run.predicted_step === null ? "no failure found" : `step ${run.predicted_step}`;
+      const expected = expectsFailure ? `step ${expectedStep}` : "no failure";
+      head.append(`predicted ${predicted} · expected ${expected}`);
+      head.appendChild(pill(run.correct ? "correct" : "miss", run.correct ? "ok" : "miss"));
+      if (run.predicted_category) head.append(` · ${run.predicted_category}`);
+    }
+    box.appendChild(head);
+
+    if (run.error) box.appendChild(el("div", "rerror", run.error));
+    else if (run.predicted_summary) box.appendChild(el("div", "rsummary", run.predicted_summary));
+    return box;
+  }
+
+  function pill(text, cls) {
+    return el("span", "pill " + cls, text);
+  }
+
+  function renderTable(m) {
+    const host = document.getElementById("table-host");
+    host.textContent = "";
+
+    const table = el("table");
+    const thead = el("thead");
+    const hrow = el("tr");
+    [["Trace", ""], ["Expected", "num"], ["Majority", "num"], ["Correct", "num"],
+     ["Errored", "num"], ["Consistency", "num"]].forEach(([label, cls]) => {
+      hrow.appendChild(el("th", cls, label));
+    });
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+
+    const tbody = el("tbody");
+    m.traces.forEach((t, i) => {
+      const rate = t.completed ? t.correct / t.completed : null;
+      const cls = rate === null ? "" : (rate === 1 ? "perfect" : (rate === 0 ? "failed" : "partial"));
+      const row = el("tr", "trace-row " + cls);
+
+      const nameCell = el("td");
+      const nameLine = el("div");
+      nameLine.appendChild(el("span", "caret", "▸"));
+      nameLine.appendChild(el("span", "tname", t.trace.replace(/\.json$/, "")));
+      if (!t.expected_has_failure) nameLine.appendChild(pill("clean trace", "clean"));
+      nameCell.appendChild(nameLine);
+      if (t.notes) nameCell.appendChild(el("div", "tnotes", t.notes));
+      row.appendChild(nameCell);
+
+      row.appendChild(el("td", "num", t.expected_has_failure ? String(t.expected_step) : "none"));
+      row.appendChild(el("td", "num", t.completed ? (t.majority_step === null ? "none" : String(t.majority_step)) : "—"));
+
+      const score = el("td", "num score", t.completed ? `${t.correct}/${t.completed}` : "—");
+      row.appendChild(score);
+      row.appendChild(el("td", "num", t.errored ? String(t.errored) : "—"));
+      row.appendChild(el("td", "num", t.consistency === null ? "—" : Math.round(t.consistency * 100) + "%"));
+      tbody.appendChild(row);
+
+      const runsRow = el("tr", "runs-row hidden");
+      const runsCell = el("td");
+      runsCell.colSpan = 6;
+      t.runs.forEach((r) => runsCell.appendChild(runBlock(r, t.expected_step, t.expected_has_failure)));
+      runsRow.appendChild(runsCell);
+      tbody.appendChild(runsRow);
+
+      row.addEventListener("click", () => {
+        const hidden = runsRow.classList.contains("hidden");
+        runsRow.classList.toggle("hidden", !hidden);
+        nameLine.querySelector(".caret").textContent = hidden ? "▾" : "▸";
+      });
+    });
+
+    table.appendChild(tbody);
+    host.appendChild(table);
+  }
+
+  function renderEraNote(era, reportCount) {
+    const host = document.getElementById("era-note");
+    host.textContent = "";
+    const flag = era.untrustworthy ? " untrustworthy" : (era.partial ? " partial" : "");
+    const box = el("div", "era-note" + flag);
+    // An incomplete or known-bad set has to say so next to its own numbers.
+    // A percentage shown without that caveat reads as the headline result,
+    // which is how a partial run quietly becomes a claim.
+    if (era.untrustworthy) box.appendChild(el("span", "warn-tag", "do not trust"));
+    else if (era.partial) box.appendChild(el("span", "warn-tag", "partial set"));
+    box.appendChild(el("strong", null, era.label));
+    box.append(" — " + era.description);
+    if (reportCount > 1) {
+      box.append(` Merged from ${reportCount} report files; the free-tier daily cap forced the set to be run in fragments, so no single file holds all of it.`);
+    }
+    box.appendChild(el("span", "prompt", era.prompt));
+    host.appendChild(box);
+  }
+
+  function renderFootnote() {
+    const host = document.getElementById("footnote");
+    host.textContent = "";
+    const box = el("div", "footnote");
+    box.append("Accuracy counts only runs that completed. A run whose API call failed is recorded as ");
+    box.appendChild(el("code", null, "errored"));
+    box.append(" and excluded, never scored as the judge finding nothing — conflating those two was a real bug in the first version of this benchmark, and it inflated false negatives while faking correct answers on the clean traces. Consistency is the share of completed runs that agreed with each other, which is a separate question from correctness: a judge can be consistently wrong. Click any row for its individual runs.");
+    host.appendChild(box);
+  }
+
+  function fail(message) {
+    document.getElementById("stats").textContent = "";
+    document.getElementById("table-host").textContent = "";
+    const box = el("div", "empty-state");
+    box.append(message);
+    box.appendChild(document.createElement("br"));
+    box.appendChild(document.createElement("br"));
+    box.append("Browsers block fetch() against files opened directly from disk. Serve the folder instead, from the project root:");
+    box.appendChild(document.createElement("br"));
+    box.appendChild(document.createElement("br"));
+    box.appendChild(el("code", null, "python3 -m http.server"));
+    box.appendChild(document.createElement("br"));
+    box.appendChild(document.createElement("br"));
+    box.append("then open ");
+    box.appendChild(el("code", null, "http://localhost:8000/output/benchmark.html"));
+    document.getElementById("era-note").textContent = "";
+    document.getElementById("table-host").appendChild(box);
+  }
+
+  const loadJSON = (url) =>
+    fetch(url).then((r) => {
+      if (!r.ok) throw new Error(url + " — HTTP " + r.status);
+      return r.json();
+    });
+
+  function show(era, files) {
+    Promise.all(files.map(loadJSON))
+      .then((reports) => {
+        renderEraNote(era, reports.length);
+        const merged = mergeReports(reports);
+        renderStats(merged, era);
+        renderTable(merged);
+        renderFootnote();
+      })
+      .catch((e) => fail("Couldn't load a benchmark report (" + e.message + ")."));
+  }
+
+  loadJSON(MANIFEST_URL)
+    .then((manifest) => {
+      const eras = manifest.eras || [];
+      if (!eras.length) return fail("benchmark_manifest.json lists no eras.");
+
+      const controls = document.getElementById("controls");
+      const eraSelect = document.getElementById("era-select");
+      const reportSelect = document.getElementById("report-select");
+      controls.style.display = "flex";
+
+      eras.forEach((era, i) => eraSelect.appendChild(new Option(era.label, String(i))));
+
+      function refreshReports() {
+        const era = eras[Number(eraSelect.value)];
+        reportSelect.textContent = "";
+        reportSelect.appendChild(new Option(`All ${era.reports.length} merged`, "*"));
+        era.reports.forEach((f) => reportSelect.appendChild(new Option(f.replace(/^benchmark_report_?|\.json$/g, "") || f, f)));
+        return era;
+      }
+
+      function refresh() {
+        const era = eras[Number(eraSelect.value)];
+        const pick = reportSelect.value;
+        show(era, pick === "*" ? era.reports : [pick]);
+      }
+
+      eraSelect.addEventListener("change", () => { refreshReports(); refresh(); });
+      reportSelect.addEventListener("change", refresh);
+
+      refreshReports();
+      refresh();
+    })
+    .catch((e) => fail("Couldn't load benchmark_manifest.json (" + e.message + ")."));
+</script>
+</body>
+</html>

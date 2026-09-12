@@ -65,6 +65,27 @@ The other 10 traces are the hand-labeled ground-truth set (`sample_traces/ground
 
 Traces are plain JSON: a task description plus an ordered list of steps (`reasoning` / `tool_call` / `tool_result` / `final_answer`). See [schema.py](schema.py). This is intentionally close to OpenTelemetry's GenAI semantic conventions, so real logs from LangChain, a custom agent loop, etc. can be adapted into it without much friction.
 
+## Reading the benchmark
+
+[output/benchmark.html](output/benchmark.html) renders the benchmark reports: headline accuracy, per-trace rows with expected vs. majority-predicted step, self-consistency, and every individual run behind a click.
+
+The reason this needed a UI at all is that the results were never in one file. Gemini's free-tier daily cap forced the set to be run in fragments across many sessions, so the numbers in this README were assembled by hand from eight separate report files. The page merges them — but only within a **prompt version**, never across, because pooling pre-fix and post-fix runs would average away the exact difference the prompt change was made to measure. That grouping lives in [output/benchmark_manifest.json](output/benchmark_manifest.json) as reviewable data rather than a filename-prefix guess buried in JavaScript.
+
+Three things the page is deliberately careful about, all of them the same lesson this project keeps relearning — *a number without its caveat becomes a claim*:
+
+- **An errored run is not a wrong answer.** API failures get their own tile, their own styling, and are excluded from the accuracy denominator rather than scored as "the judge found nothing." That conflation was a real bug here once; the UI is built so it can't be re-introduced visually.
+- **A partial set says so.** The pre-fix reports cover only 5 of the 10 traces, weighted toward the hard ones, so merging them gives a *lower* number than the README's 89% — that figure also counts runs recorded in `consistency_*.json` and in sessions that produced no report at all. The era is tagged `partial set` and its caveat sits next to its own numbers.
+- **A flagged set gets no green.** On a partial or untrustworthy era, "0 false positives" drops to neutral instead of rendering as a pass. Incomplete data can prove a problem exists; it can't prove one's absence.
+
+The first benchmark run — scored before `judge.py` distinguished a failed call from a real "no failure" verdict — is kept as [benchmark_report_v0_buggy_scorer.json](output/benchmark_report_v0_buggy_scorer.json) and tagged `do not trust`. It's the recorded evidence of the silent-failure bug, not a result.
+
+```bash
+python3 -m http.server
+# then http://localhost:8000/output/benchmark.html
+```
+
+The trace viewer also takes `?file=` now, so you can point it anywhere without editing the source: `output/viewer.html?file=diagnosis.json`. Absolute and protocol-relative URLs are rejected — a crafted link shouldn't be able to render someone else's JSON inside the page.
+
 ## Showing the judge's work
 
 The structural fix that made the judge catch the real contradiction was requiring a `claims` array in its output — every concrete, checkable claim pulled from each step, tagged by step, emitted *before* the verdict. That array is the evidence extraction actually ran: a near-empty claims list on a long trace is the tell that the judge skipped the pass and answered from a single read.
