@@ -159,6 +159,27 @@
     word-break: break-word;
     line-height: 1.4;
   }
+  /* Real traces carry ~10,000-character prose blocks -- an analyst's draft
+     report, a critic's review. Rendered in full they bury the timeline, and
+     the whole point of this page is seeing where a long trajectory broke at
+     a glance. Long steps are clamped and opened on demand; the critical step
+     opens itself, since that is the one you came to read. */
+  .step-text.clamped {
+    max-height: 15em;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 70%, transparent 100%);
+  }
+  .expand {
+    font: inherit;
+    font-size: 0.76rem;
+    color: var(--accent);
+    background: none;
+    border: none;
+    padding: 0.3rem 0 0;
+    cursor: pointer;
+    text-decoration: underline;
+  }
 
   /* The judge's PASS 1 extraction, shown under the step each claim came
      from. This is the audit trail for the verdict: a long trace with a
@@ -356,6 +377,27 @@
       bar.append(count, label, toggle);
     }
 
+    // Must run after the element is in the document, since it measures.
+    function clampIfLong(textEl, stepEl) {
+      // scrollHeight is unavailable outside a real layout engine; skip
+      // rather than throw, so the page still renders everything.
+      if (typeof textEl.scrollHeight !== "number") return;
+      textEl.classList.add("clamped");
+      if (textEl.scrollHeight <= textEl.clientHeight + 4) {
+        textEl.classList.remove("clamped");
+        return;
+      }
+      const button = document.createElement("button");
+      button.className = "expand";
+      const chars = (textEl.textContent || "").length;
+      button.textContent = `show all (${chars.toLocaleString()} characters)`;
+      button.addEventListener("click", () => {
+        const clamped = textEl.classList.toggle("clamped");
+        button.textContent = clamped ? `show all (${chars.toLocaleString()} characters)` : "show less";
+      });
+      stepEl.insertBefore(button, textEl.nextSibling);
+    }
+
     function claimsBlock(list) {
       const box = document.createElement("div");
       box.className = "claims";
@@ -398,9 +440,11 @@
         </div>
         <div class="step-text"></div>
       `;
-      el.querySelector(".step-text").textContent = step.text;
+      const textEl = el.querySelector(".step-text");
+      textEl.textContent = step.text;
       if (claimsByStep.has(step.index)) el.appendChild(claimsBlock(claimsByStep.get(step.index)));
       timeline.appendChild(el);
+      if (step.index !== criticalIdx) clampIfLong(textEl, el);
     });
 
     // A claim tagged with a step that isn't in the trace still has to be

@@ -486,6 +486,13 @@
 
       eras.forEach((era, i) => eraSelect.appendChild(new Option(era.label, String(i))));
 
+      // ?era=<id>&report=<file> so a specific view is linkable -- pointing
+      // someone at "the partial pre-fix set" should not mean telling them
+      // which dropdowns to change.
+      const params = new URLSearchParams(location.search);
+      const wantEra = eras.findIndex((e) => e.id === params.get("era"));
+      if (wantEra >= 0) eraSelect.value = String(wantEra);
+
       function refreshReports() {
         const era = eras[Number(eraSelect.value)];
         reportSelect.textContent = "";
@@ -504,6 +511,10 @@
       reportSelect.addEventListener("change", refresh);
 
       refreshReports();
+      const wantReport = params.get("report");
+      if (wantReport && eras[Number(eraSelect.value)].reports.includes(wantReport)) {
+        reportSelect.value = wantReport;
+      }
       refresh();
     })
     .catch((e) => fail("Couldn't load benchmark_manifest.json (" + e.message + ")."));

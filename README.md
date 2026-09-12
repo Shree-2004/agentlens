@@ -50,7 +50,7 @@ A `.env` file in the project root (gitignored) also works, via `python-dotenv`.
 
 **Gemini free tier note:** `generativelanguage.googleapis.com` caps free-tier usage at **20 requests/day per Google Cloud project per model**. The full benchmark (10 traces × 3 runs = 30 calls) doesn't fit in one day on a fresh free-tier project — plan accordingly, or use `--provider anthropic` (paid, no free daily cap) if you need it to finish in one sitting.
 
-Then open `output/viewer.html` in a browser. It defaults to [real_traces/multi_agent_research_live_diagnosis.json](real_traces/multi_agent_research_live_diagnosis.json) — the real Nobel Prize catch, described below — so it shows something real with no API key; edit the `DATA_URL` constant at the top of the `<script>` block to point at any other diagnosis file. Browsers block `fetch()` against files opened directly from disk, so serve the folder instead:
+Then open `output/viewer.html` in a browser. It defaults to [real_traces/multi_agent_research_live_diagnosis.json](real_traces/multi_agent_research_live_diagnosis.json) — the real Nobel Prize catch, described below — so it shows something real with no API key; append `?file=<path>` to point it at any other diagnosis. Browsers block `fetch()` against files opened directly from disk, so serve the folder instead:
 
 ```bash
 python3 -m http.server
@@ -84,7 +84,9 @@ python3 -m http.server
 # then http://localhost:8000/output/benchmark.html
 ```
 
-The trace viewer also takes `?file=` now, so you can point it anywhere without editing the source: `output/viewer.html?file=diagnosis.json`. Absolute and protocol-relative URLs are rejected — a crafted link shouldn't be able to render someone else's JSON inside the page.
+Both pages are linkable. The benchmark takes `?era=v1` / `?report=<file>`, so pointing someone at "the partial pre-fix set" doesn't mean telling them which dropdowns to change. The trace viewer takes `?file=`, so you can point it anywhere without editing the source: `output/viewer.html?file=diagnosis.json`. Absolute and protocol-relative URLs are rejected — a crafted link shouldn't be able to render someone else's JSON inside the page.
+
+Long steps in the viewer are clamped with a `show all (N characters)` toggle, because real traces carry ~10,000-character prose blocks that otherwise bury the timeline — and seeing where a long trajectory broke at a glance is the entire point of the page. The critical step is never clamped; it's the one you came to read.
 
 ## Showing the judge's work
 
