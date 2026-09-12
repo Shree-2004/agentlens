@@ -143,6 +143,118 @@ def test_verdict_to_findings_is_pure() -> None:
           _verdict_to_findings({**FAILURE_VERDICT, "category": None})[0].category, "state_corruption")
 
 
+def test_provider_registry() -> None:
+    """Groq sits ahead of Gemini in auto-detect order: Gemini's 20/day free
+    cap is what forced this project's benchmark into fragments."""
+    print("provider registry")
+    order = list(judge_mod._PROVIDERS)
+    check("all three providers registered", order, ["anthropic", "groq", "gemini"])
+    check("groq is preferred over gemini", order.index("groq") < order.index("gemini"), True)
+
+    env_var, default_model, call_fn = judge_mod._PROVIDERS["groq"]
+    check("groq reads GROQ_API_KEY", env_var, "GROQ_API_KEY")
+    check("groq has a default model", bool(default_model), True)
+    check("groq call is wired", callable(call_fn), True)
+
+
+def test_auto_detect_skips_providers_without_keys(monkeypatch_env=None) -> None:
+    """Auto-detect must only consider providers whose key is actually set."""
+    print("auto-detect")
+    import os
+
+    saved = {v: os.environ.pop(v, None) for v, _, _ in judge_mod._PROVIDERS.values()}
+    try:
+        os.environ["GROQ_API_KEY"] = "test-key"
+        seen = {}
+
+        def fake_retry(call_fn, prompt, api_key, model, provider, max_attempts=4):
+            seen["provider"] = provider
+            seen["model"] = model
+            return json.dumps(CLEAN_VERDICT)
+
+        original = judge_mod._call_with_retry
+        judge_mod._call_with_retry = fake_retry
+        try:
+            verdict = judge_mod.run_judge_raw(TRACE)
+        finally:
+            judge_mod._call_with_retry = original
+
+        check("picks the only provider with a key", seen["provider"], "groq")
+        check("uses its default model", seen["model"], judge_mod._PROVIDERS["groq"][1])
+        check("stamps the provider on the verdict", verdict["_provider"], "groq")
+        check("stamps the model too", verdict["_model"], seen["model"])
+    finally:
+        os.environ.pop("GROQ_API_KEY", None)
+        for var, val in saved.items():
+            if val is not None:
+                os.environ[var] = val
+
+
+def test_groq_call_shape() -> None:
+    """Exercise _call_groq against a stubbed SDK.
+
+    No Groq key is available here, so this cannot prove the call succeeds
+    against the live API -- only that the request is assembled the way the
+    SDK expects and the response is read from the right place. Those are
+    the parts that fail silently or with a confusing AttributeError rather
+    than a clear API error.
+    """
+    print("groq call shape")
+    import sys
+    import types as pytypes
+
+    captured = {}
+
+    class _Completions:
+        def create(self, **kwargs):
+            captured.update(kwargs)
+            msg = pytypes.SimpleNamespace(content='{"has_failure": false}')
+            return pytypes.SimpleNamespace(choices=[pytypes.SimpleNamespace(message=msg)])
+
+    class _Groq:
+        def __init__(self, api_key=None):
+            captured["api_key"] = api_key
+            self.chat = pytypes.SimpleNamespace(completions=_Completions())
+
+    stub = pytypes.ModuleType("groq")
+    stub.Groq = _Groq
+    saved = sys.modules.get("groq")
+    sys.modules["groq"] = stub
+    try:
+        out = judge_mod._call_groq("TRACE TEXT", "gsk_test", "llama-3.3-70b-versatile")
+    finally:
+        if saved is None:
+            sys.modules.pop("groq", None)
+        else:
+            sys.modules["groq"] = saved
+
+    check("returns the message content", out, '{"has_failure": false}')
+    check("api key reaches the client", captured["api_key"], "gsk_test")
+    check("model is passed through", captured["model"], "llama-3.3-70b-versatile")
+    check("asks for a JSON object", captured["response_format"], {"type": "json_object"})
+    check("system prompt goes in the system role", captured["messages"][0]["role"], "system")
+    check("the judge prompt is the system message",
+          captured["messages"][0]["content"], judge_mod.JUDGE_SYSTEM_PROMPT)
+    check("trace goes in the user role", captured["messages"][1],
+          {"role": "user", "content": "TRACE TEXT"})
+    check("max_tokens leaves room for the claims array", captured["max_tokens"] >= 1024, True)
+
+
+def test_no_keys_means_disabled_not_broken() -> None:
+    """No key at all is a deliberate 'judge off' state, not an error."""
+    print("no keys set")
+    import os
+
+    saved = {v: os.environ.pop(v, None) for v, _, _ in judge_mod._PROVIDERS.values()}
+    try:
+        check("returns None rather than raising", judge_mod.run_judge_raw(TRACE), None)
+        check("run_judge returns no findings", judge_mod.run_judge(TRACE), [])
+    finally:
+        for var, val in saved.items():
+            if val is not None:
+                os.environ[var] = val
+
+
 def main() -> None:
     for test in (
         test_claims_returned_alongside_findings,
@@ -152,6 +264,10 @@ def main() -> None:
         test_no_judge_yields_empty_claims,
         test_verdict_without_claims_field,
         test_verdict_to_findings_is_pure,
+        test_provider_registry,
+        test_auto_detect_skips_providers_without_keys,
+        test_groq_call_shape,
+        test_no_keys_means_disabled_not_broken,
     ):
         test()
 

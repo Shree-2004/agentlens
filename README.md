@@ -36,19 +36,33 @@ git clone https://github.com/Shree-2004/agentlens.git
 cd agentlens
 pip install -r requirements.txt
 
-# either works -- the judge auto-detects whichever key is set
-# (Anthropic is checked first if both are present)
-export ANTHROPIC_API_KEY=your_key_here
-export GOOGLE_API_KEY=your_gemini_key_here
+# any one works -- the judge auto-detects whichever key is set, in this order
+export GROQ_API_KEY=your_groq_key_here          # best free tier, start here
+export ANTHROPIC_API_KEY=your_key_here          # paid, no daily cap
+export GOOGLE_API_KEY=your_gemini_key_here      # free but 20 requests/day
 
 python3 analyze.py sample_traces/stale_plan_tier.json output/diagnosis.json
-python3 analyze.py sample_traces/stale_plan_tier.json output/diagnosis.json --provider gemini
-python3 run_benchmark.py 3   # score the judge against the labeled ground-truth set
+python3 analyze.py sample_traces/stale_plan_tier.json output/diagnosis.json --provider groq
+python3 run_benchmark.py 3 --provider groq   # score the judge against the labeled set
 ```
 
 A `.env` file in the project root (gitignored) also works, via `python-dotenv`.
 
-**Gemini free tier note:** `generativelanguage.googleapis.com` caps free-tier usage at **20 requests/day per Google Cloud project per model**. The full benchmark (10 traces × 3 runs = 30 calls) doesn't fit in one day on a fresh free-tier project — plan accordingly, or use `--provider anthropic` (paid, no free daily cap) if you need it to finish in one sitting.
+### Providers
+
+Three are supported, and the judge picks whichever key is set (in the order above) unless `--provider` says otherwise.
+
+| Provider | Default model | Free tier |
+|---|---|---|
+| `groq` | `llama-3.3-70b-versatile` | ~1,000 requests/day; the daily **token** budget binds first on long traces |
+| `anthropic` | `claude-sonnet-5` | paid, no daily cap |
+| `gemini` | `gemini-flash-latest` | **20 requests/day** per project per model |
+
+**Gemini's 20/day cap is the single fact that shaped all the recorded data in this repo.** The full benchmark is 10 traces × 3 runs = 30 calls, which doesn't fit in one day — which is why the results below were gathered in fragments across many sessions, why so many runs show as errored, and why `output/benchmark.html` had to be built to merge the pieces. Groq was added to lift that constraint; on it or Anthropic the benchmark finishes in one sitting.
+
+**Which judge answered is recorded.** Accuracy from two different models is not one measurement, so `judge.py` stamps `_provider` and `_model` on every verdict, `run_benchmark.py` rolls those into a `judges` array plus a `mixed_judges` flag, and it prints a warning rather than presenting a blended score as a single number. Pass `--provider` explicitly for benchmark runs — auto-detect picks whatever key happens to be set, so the judge can otherwise change between sessions without anyone deciding to change it.
+
+The eight recorded reports predate that stamping. Their judge is documented in [output/benchmark_manifest.json](output/benchmark_manifest.json) from the project's own records rather than from the data, and the UI labels it as such.
 
 Then open **[index.html](index.html)** — one page with the trace viewer, the benchmark, and the demo behind tabs, plus pickers for which diagnosis and which prompt version to show. It's the front door; `python3 -m http.server` from the project root puts it at `http://localhost:8000/`.
 

@@ -24,7 +24,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from judge import JudgeUnavailableError, run_judge
+from judge import JudgeUnavailableError, _verdict_to_findings, run_judge_raw
 from schema import Trace
 
 TRACES_DIR = Path("sample_traces")
@@ -67,7 +67,8 @@ def main() -> None:
 
         for i in range(args.n_runs):
             try:
-                findings = run_judge(trace, provider=args.provider)
+                verdict = run_judge_raw(trace, provider=args.provider) or {}
+                findings = _verdict_to_findings(verdict)
             except JudgeUnavailableError as e:
                 run_results.append({
                     "run": i + 1,
@@ -76,6 +77,8 @@ def main() -> None:
                     "predicted_summary": None,
                     "correct": None,
                     "error": str(e),
+                    "provider": args.provider,
+                    "model": None,
                 })
                 total_errored += 1
                 print(f"{filename} run {i + 1}: ERROR ({e})")
@@ -98,6 +101,12 @@ def main() -> None:
                 "predicted_summary": predicted_summary,
                 "correct": correct,
                 "error": None,
+                # Which judge actually answered. Auto-detect picks whichever
+                # key is set, so this can change between sessions without
+                # anyone deciding to change it -- and a score is meaningless
+                # without knowing which model produced it.
+                "provider": verdict.get("_provider"),
+                "model": verdict.get("_model"),
             })
             total_completed += 1
             total_correct += int(correct)
@@ -123,6 +132,16 @@ def main() -> None:
             trace_entry["self_consistency"] = None
         per_trace.append(trace_entry)
 
+    # Roll the per-run stamps up to the report. A report whose runs came from
+    # more than one judge is not one measurement -- averaging it would blend
+    # two models into a single number that describes neither, which is the
+    # same class of mistake as scoring a failed call as "found nothing."
+    judges = sorted({
+        f"{r['provider']}/{r['model']}"
+        for t in per_trace for r in t["runs"]
+        if r.get("provider") and r.get("model")
+    })
+
     report = {
         "n_runs_per_trace": args.n_runs,
         "n_traces": len(ground_truth),
@@ -131,6 +150,8 @@ def main() -> None:
         "overall_accuracy": (total_correct / total_completed) if total_completed else None,
         "false_positive_count": false_positives,
         "false_negative_count": false_negatives,
+        "judges": judges,
+        "mixed_judges": len(judges) > 1,
         "per_trace": per_trace,
     }
 
@@ -138,6 +159,11 @@ def main() -> None:
     Path(args.output).write_text(json.dumps(report, indent=2), encoding="utf-8")
 
     print()
+    if len(judges) > 1:
+        print(f"WARNING: runs came from more than one judge ({', '.join(judges)}).")
+        print("The overall accuracy below averages across them and describes neither.")
+    elif judges:
+        print(f"Judge: {judges[0]}")
     if total_errored:
         print(f"{total_errored} run(s) errored (API failures, not judge verdicts) -- excluded from accuracy.")
     if total_completed:

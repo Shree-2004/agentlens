@@ -1,5 +1,5 @@
 {
-  "_comment": "Which benchmark reports belong together. Gemini's free-tier daily cap forced the benchmark to be run in fragments across many sessions, so no single report holds the full picture -- but runs from different judge prompt versions must never be pooled, since that would average away the exact signal the prompt change was made to test. This file makes that grouping reviewable data rather than a filename-prefix guess hidden in JavaScript. benchmark.html merges within an era and refuses to merge across.",
+  "_comment": "Which benchmark reports belong together. Gemini's free-tier daily cap forced the benchmark to be run in fragments across many sessions, so no single report holds the full picture -- but runs from different judge prompt versions must never be pooled, since that would average away the exact signal the prompt change was made to test. This file makes that grouping reviewable data rather than a filename-prefix guess hidden in JavaScript. benchmark.html merges within an era and refuses to merge across. Each era also records the judge that produced it. The report files predate run_benchmark.py stamping the provider on every run, so for these the judge comes from the project's own records (the Gemini free-tier cap documented in the README is what forced them into fragments) rather than from the data. Reports written from now on carry a \"judges\" array and a \"mixed_judges\" flag, and benchmark.html prefers those over this field.",
   "eras": [
     {
       "id": "v2",
@@ -12,7 +12,9 @@
         "benchmark_report_v2_remaining5.json",
         "benchmark_report_v2_final2.json",
         "benchmark_report_v2_lasttrace.json"
-      ]
+      ],
+      "judge": "gemini/gemini-flash-latest",
+      "judge_source": "project records, not stamped in the report"
     },
     {
       "id": "v1",
@@ -23,7 +25,9 @@
       "reports": [
         "benchmark_report_remaining.json",
         "benchmark_report_final.json"
-      ]
+      ],
+      "judge": "gemini/gemini-flash-latest",
+      "judge_source": "project records, not stamped in the report"
     },
     {
       "id": "buggy-scorer",
@@ -33,7 +37,9 @@
       "untrustworthy": true,
       "reports": [
         "benchmark_report_v0_buggy_scorer.json"
-      ]
+      ],
+      "judge": "gemini/gemini-flash-latest",
+      "judge_source": "project records, not stamped in the report"
     }
   ]
 }

@@ -325,7 +325,7 @@
       <div class="steps">
         <div class="step-item">
           <h3>Clone and install <span class="req free">no API key</span></h3>
-          <p>Three dependencies: the two LLM SDKs and <code>python-dotenv</code>. Python 3.10 or newer.</p>
+          <p>Four dependencies: three LLM SDKs and <code>python-dotenv</code>. Python 3.10 or newer.</p>
           <div class="code"><pre>git clone https://github.com/Shree-2004/agentlens.git
 cd agentlens
 pip install -r requirements.txt</pre></div>
@@ -347,11 +347,14 @@ pip install -r requirements.txt</pre></div>
 
         <div class="step-item">
           <h3>Add an API key <span class="req key">key needed</span></h3>
-          <p>Either provider works — the judge auto-detects whichever is set, checking Anthropic first if both are. Put them in a <code>.env</code> file in the project root (gitignored) or export them.</p>
-          <div class="code"><pre><span class="cmt"># pick one</span>
+          <p>Three providers work. The judge auto-detects whichever key is set, in the order below. Put them in a <code>.env</code> file in the project root (gitignored) or export them.</p>
+          <div class="code"><pre><span class="cmt"># any one of these</span>
+export GROQ_API_KEY=gsk_...
 export ANTHROPIC_API_KEY=sk-ant-...
 export GOOGLE_API_KEY=...</pre></div>
-          <div class="note warn"><strong>Gemini's free tier caps at 20 requests/day</strong> per project per model. That is the single biggest practical constraint on this project — it is why the benchmark below was run in fragments across many sessions. Anthropic is paid but has no daily cap.</div>
+          <p><strong>Start with Groq</strong> if you don't already have a key. Its free tier allows around 1,000 requests/day, against Gemini's 20 — which is the difference between running the whole benchmark in one sitting and spreading it across a week.</p>
+          <div class="note warn"><strong>Gemini's free tier caps at 20 requests/day</strong> per project per model. That is why the recorded benchmark below was run in fragments across many sessions. Anthropic is paid with no daily cap. Groq's daily <em>token</em> budget is the real ceiling there, not the request count — long traces are token-heavy.</div>
+          <div class="note"><strong>Which judge answered is recorded.</strong> Scores from different models are not interchangeable, so <code>run_benchmark.py</code> stamps the provider and model on every run and refuses to present a mixed report as one number — it warns instead.</div>
         </div>
 
         <div class="step-item">
@@ -370,8 +373,9 @@ export GOOGLE_API_KEY=...</pre></div>
         <div class="step-item">
           <h3>Score the judge yourself <span class="req key">key needed</span></h3>
           <p>Don't take the numbers on the <button class="inline-link" data-goto="benchmark">Benchmark</button> tab on faith — regenerate them. This runs every labeled trace N times and scores each run against a label written before the judge ever saw it.</p>
-          <div class="code"><pre>python3 run_benchmark.py 3 --output output/benchmark_report_v3.json</pre></div>
-          <div class="note warn">10 traces × 3 runs = <strong>30 calls</strong>, which does not fit in Gemini's free daily cap. Use <code>--only trace1.json,trace2.json</code> to run a subset, or <code>--provider anthropic</code> to finish in one sitting.</div>
+          <div class="code"><pre>python3 run_benchmark.py 3 --provider groq --output output/benchmark_report_v3.json</pre></div>
+          <div class="note warn">10 traces × 3 runs = <strong>30 calls</strong>, which does not fit in Gemini's free daily cap — that single fact shaped how all the recorded data here was gathered. On Groq or Anthropic it finishes in one sitting; on Gemini, use <code>--only trace1.json,trace2.json</code> to work through a subset at a time.</div>
+          <p>Pass <code>--provider</code> explicitly for a benchmark run. Auto-detect picks whatever key happens to be set, which means the judge can change between sessions without you deciding to change it.</p>
           <p>To see a new report in the Benchmark tab, add its filename to <code>output/benchmark_manifest.json</code> under the prompt version it belongs to. That step is deliberate friction: pooling runs from different judge prompts would average away the exact difference a prompt change was made to measure.</p>
         </div>
 

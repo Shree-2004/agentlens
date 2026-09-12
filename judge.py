@@ -130,9 +130,37 @@ def _call_gemini(user_prompt: str, api_key: str, model: str, system_prompt: str 
     return response.text
 
 
+def _call_groq(
+    user_prompt: str, api_key: str, model: str, system_prompt: str = JUDGE_SYSTEM_PROMPT, max_tokens: int = 2048
+) -> str:
+    from groq import Groq
+
+    client = Groq(api_key=api_key)
+    response = client.chat.completions.create(
+        model=model,
+        max_tokens=max_tokens,
+        # The judge's contract is a single JSON object. Groq can enforce that
+        # server-side, which removes the fenced-markdown case _parse_verdict
+        # otherwise has to strip off.
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+    )
+    return response.choices[0].message.content
+
+
 # provider -> (env var to look for, model default, call function)
+#
+# Order matters: this is also the auto-detect precedence when no --provider
+# is given. Gemini's free tier allows 20 requests/day, which is the reason
+# this project's benchmark had to be run in fragments across many sessions;
+# Groq's free tier is orders of magnitude larger, so it goes ahead of Gemini
+# as the default free option.
 _PROVIDERS = {
     "anthropic": ("ANTHROPIC_API_KEY", "claude-sonnet-5", _call_anthropic),
+    "groq": ("GROQ_API_KEY", "llama-3.3-70b-versatile", _call_groq),
     "gemini": ("GOOGLE_API_KEY", "gemini-flash-latest", _call_gemini),
 }
 
@@ -188,14 +216,24 @@ def run_judge_raw(trace: Trace, provider: str | None = None, model: str | None =
     if not api_key:
         return None
 
-    response_text = _call_with_retry(call_fn, _format_trace(trace), api_key, model or default_model, chosen)
+    chosen_model = model or default_model
+    response_text = _call_with_retry(call_fn, _format_trace(trace), api_key, chosen_model, chosen)
     if response_text is None:
         raise JudgeUnavailableError(f"{chosen} judge call failed after retries")
 
     try:
-        return _parse_verdict(response_text)
+        verdict = _parse_verdict(response_text)
     except (json.JSONDecodeError, IndexError, AttributeError) as e:
         raise JudgeUnavailableError(f"{chosen} judge returned an unparseable response: {e}") from e
+
+    # Stamp who answered. With more than one provider available, "89% correct"
+    # is meaningless unless you know which judge produced it -- and since
+    # auto-detect picks whatever key happens to be set, the provider can change
+    # between sessions without anyone choosing to change it. Recorded on the
+    # verdict so every downstream consumer gets it for free.
+    verdict["_provider"] = chosen
+    verdict["_model"] = chosen_model
+    return verdict
 
 
 def _verdict_to_findings(verdict: dict) -> list[Finding]:
