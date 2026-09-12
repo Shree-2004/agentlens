@@ -413,11 +413,10 @@ python3 test_langfuse_adapter.py   <span class="cmt"># the Langfuse → AgentLen
     { file: "output/diagnosis_timezone.json", label: "Timezone assumption (local)" },
   ];
 
-  const ERAS = [
-    { id: "v2", label: "After the structural fix (full set)" },
-    { id: "v1", label: "Before the structural fix (partial set)" },
-    { id: "buggy-scorer", label: "Pre-bugfix scorer (do not trust)" },
-  ];
+  // Read from the manifest rather than restating it here. A hardcoded copy
+  // silently went stale the moment a new era was added, which is the same
+  // drift that left --provider groq unreachable in four CLIs.
+  let ERAS = [];
 
   const TABS = [
     { id: "overview", label: "Overview" },
@@ -541,10 +540,16 @@ python3 test_langfuse_adapter.py   <span class="cmt"># the Langfuse → AgentLen
     el.addEventListener("click", () => showTab(el.dataset.goto));
   });
 
-  Promise.all(DIAGNOSES.map((d) =>
-    fetch(d.file, { method: "HEAD" }).then((r) => (r.ok ? d : null)).catch(() => null)
-  )).then((found) => {
+  Promise.all([
+    Promise.all(DIAGNOSES.map((d) =>
+      fetch(d.file, { method: "HEAD" }).then((r) => (r.ok ? d : null)).catch(() => null)
+    )),
+    fetch("output/benchmark_manifest.json")
+      .then((r) => (r.ok ? r.json() : { eras: [] }))
+      .catch(() => ({ eras: [] })),
+  ]).then(([found, manifest]) => {
     available = found.filter(Boolean);
+    ERAS = (manifest.eras || []).map((e) => ({ id: e.id, label: e.label }));
     const wanted = new URLSearchParams(location.search).get("tab");
     showTab(TABS.some((t) => t.id === wanted) ? wanted : "overview");
   });

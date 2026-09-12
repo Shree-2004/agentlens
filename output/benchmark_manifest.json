@@ -17,6 +17,15 @@
       "judge_source": "project records, not stamped in the report"
     },
     {
+      "id": "v4-groq",
+      "label": "Structural fix, judged by Groq gpt-oss-120b",
+      "prompt": "Identical to the structural-fix prompt above. Only the judge model differs.",
+      "description": "The same prompt and the same labels, run against a different model -- so this measures how much of the claims-extraction contract is carried by the prompt rather than by Gemini specifically. It is also the only complete run in this repo: 30 of 30 calls finished, nothing errored, every trace sampled 3 times. Its 80% is therefore a more trustworthy number than the 90% above, which rests on 21 completed calls out of 63 attempted, unevenly spread across traces by whenever the free tier let a call through. Do not read the two percentages as a like-for-like comparison.",
+      "reports": [
+        "benchmark_report_v4_groq.json"
+      ]
+    },
+    {
       "id": "v1",
       "label": "Before the structural fix",
       "prompt": "Original judge prompt, plus a later prose-only revision telling the judge contradictions can be prose-buried. Neither version required claims as output.",

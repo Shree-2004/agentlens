@@ -191,6 +191,37 @@ Also worth naming: getting here required fixing a real bug. The first benchmark 
 
 Full run-by-run data: [output/benchmark_report_remaining.json](output/benchmark_report_remaining.json) and [output/benchmark_report_final.json](output/benchmark_report_final.json).
 
+### Cross-model check: does the prompt carry the contract, or did Gemini?
+
+Every number above came from one judge model. Adding Groq made it cheap to ask whether the claims-extraction contract is a property of the prompt or of Gemini specifically — same prompt, same labels, different model.
+
+`openai/gpt-oss-120b` via Groq, 10 traces × 3 runs, full report: [output/benchmark_report_v4_groq.json](output/benchmark_report_v4_groq.json).
+
+**30 of 30 calls completed. Nothing errored.** That had never happened before — every prior run was shredded by Gemini's 20/day cap, which is why the earlier numbers rest on 21 completed calls out of 63 attempted, spread unevenly across traces by whenever a call happened to get through.
+
+| Trace | Gemini | Groq gpt-oss-120b |
+|---|---|---|
+| `stale_plan_tier` | 3/3 | 3/3 |
+| `timezone_assumption` | 2/2 | 3/3 |
+| `misread_units` | 3/3 | 3/3 |
+| `compounding_rounding_error` | 2/2 | 3/3 |
+| `misattributed_source` | 2/2 | 3/3 |
+| `outdated_permission_role` | 1/1 | 2/3 — one run picked step 3 |
+| `duplicate_entity_confusion` | 2/2 | **1/3** — two runs found no failure at all |
+| `silent_wrong_default` | 0/2 | 0/3 |
+| `clean_success_refund` | 2/2 | 3/3 |
+| `clean_success_flight` | 2/2 | 3/3 |
+| **Overall** | 19/21 (90%) | **24/30 (80%)** |
+
+**Don't read 90% vs 80% as a like-for-like comparison.** The Groq figure is a complete, evenly-sampled run; the Gemini figure is a partial one assembled over weeks. The lower number is the more trustworthy one.
+
+What the comparison actually shows:
+
+- **The contract mostly transfers.** Six of eight failure traces scored identically, on a model that had never seen this prompt. The required-`claims` structure isn't a Gemini-specific trick.
+- **`duplicate_entity_confusion` is a genuine regression, and the worst kind.** Two of three runs returned *no failure* — false negatives, not wrong steps. This trace has no contradicting second fact; the tool honestly reports two matching customers and the agent silently picks one. Gemini caught it 2/2. That's the clearest evidence yet that some of the detection was model-specific, and it's a weaker spot than the headline number suggests.
+- **Zero false positives held**, 6/6 across both clean traces. The number that matters most is the one that transferred cleanly.
+- **`silent_wrong_default` failed on both models, but differently.** Gemini said step 1 every time, consistently enough that the README argued it was a defensible alternative root cause. Groq gave step 2, step 1, step 2 — *inconsistent*. That weakens the "defensible reading" story: a model disagreeing with itself across runs looks less like a competing interpretation and more like a trace too ambiguous to anchor to. Worth revisiting the label.
+
 ### The real-trace test
 
 Every trace above was hand-authored — built specifically to contain (or not contain) a failure. That's a structural limitation of any benchmark built this way: a tool that finds problems in traces designed for it to find doesn't prove much about traces nobody designed for it. So [capture_real_trace.py](capture_real_trace.py) does something different: it monkeypatches the actual tool calls and LLM invocations of a separate, real project — [Multi-Agent Research Assistant](https://github.com/Shree-2004/Multi-Agent-Research-Assistant)'s researcher → analyst → writer → critic pipeline — and records what genuinely happens on a live, unmodified run, with no pre-known answer. Output: [real_traces/multi_agent_research_live.json](real_traces/multi_agent_research_live.json).
