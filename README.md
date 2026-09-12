@@ -222,6 +222,39 @@ What the comparison actually shows:
 - **Zero false positives held**, 6/6 across both clean traces. The number that matters most is the one that transferred cleanly.
 - **`silent_wrong_default` failed on both models, but differently.** Gemini said step 1 every time, consistently enough that the README argued it was a defensible alternative root cause. Groq gave step 2, step 1, step 2 — *inconsistent*. That weakens the "defensible reading" story: a model disagreeing with itself across runs looks less like a competing interpretation and more like a trace too ambiguous to anchor to. Worth revisiting the label.
 
+### What the judge structurally cannot see
+
+The cross-model run left two traces failing on *both* models, and chasing one of them turned them into a single finding rather than two unrelated misses.
+
+Running `debug_judge.py` on `duplicate_entity_confusion` showed the extraction pass working perfectly. It pulled out exactly the facts needed:
+
+```
+[step 2] Search returned two matches: C-1001 and C-2044, match_count 2
+[step 3] Chosen account for John Carter is customer C-1001
+```
+
+And then concluded: *"No contradictory facts were found; all claims are consistent."*
+
+**It's right.** Choosing C-1001 does not contradict there being two matches — C-1001 *is* one of them. Every later claim follows consistently. The agent never says anything false. It just commits to one of two candidates without justifying the choice, and refunds a customer who may be the wrong John Carter.
+
+That is not a contradiction. It's an **unsupported commitment**, and PASS 2 only asks one question: *do any two claims disagree?*
+
+`silent_wrong_default` fails for a neighbouring reason. Its tool result is internally inconsistent — `to_currency: "USD"` alongside `note: "defaulted to same as source currency"`, with `converted_amount` unchanged at 250. The conflict lives *inside a single step's payload*, not between two steps, so a pass that compares claims across steps never lines it up against anything.
+
+The contrast that makes this precise is `compounding_rounding_error`, which scores 3/3 on both models. The README used to describe it as having no explicit contradiction — it does have one: the tool says `0.0175` and the very next step asserts `$0.02` about the same quantity. Two claims, same subject, disagreeing. That's why it's caught, and why the other two aren't.
+
+So the honest characterisation of what this tool detects is narrower than "state corruption":
+
+| Shape | Example | Detected |
+|---|---|---|
+| Two claims about the same thing disagree | `stale_plan_tier`, `compounding_rounding_error` | yes, reliably |
+| A claim commits to one of several options with nothing supporting the choice | `duplicate_entity_confusion` | **no** |
+| A single payload carries a caveat that undercuts its own headline value | `silent_wrong_default` | **no** |
+
+This reframes both persistent failures as one structural gap rather than two model quirks — and it's the first limitation here identified by reading the judge's own reasoning rather than by scoring it. The evidence needed is already in the claims array both times; PASS 2 simply never asks the question that would use it.
+
+The obvious next experiment is a PASS 3 that asks two more questions of the same extracted claims — *is every commitment supported by something?* and *does any claim repeat a value while dropping the caveat attached to it?* Whether that improves detection without costing false positives on the clean traces is exactly the kind of thing the benchmark now exists to answer, and — since the full run finally fits in one sitting — can be answered in an afternoon rather than a fortnight.
+
 ### The real-trace test
 
 Every trace above was hand-authored — built specifically to contain (or not contain) a failure. That's a structural limitation of any benchmark built this way: a tool that finds problems in traces designed for it to find doesn't prove much about traces nobody designed for it. So [capture_real_trace.py](capture_real_trace.py) does something different: it monkeypatches the actual tool calls and LLM invocations of a separate, real project — [Multi-Agent Research Assistant](https://github.com/Shree-2004/Multi-Agent-Research-Assistant)'s researcher → analyst → writer → critic pipeline — and records what genuinely happens on a live, unmodified run, with no pre-known answer. Output: [real_traces/multi_agent_research_live.json](real_traces/multi_agent_research_live.json).
