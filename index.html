@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentLens</title>
+<style>
+  :root {
+    --bg: #f7f7f8;
+    --panel: #ffffff;
+    --border: #e2e2e6;
+    --text: #1a1a1e;
+    --text-dim: #6b6b73;
+    --ok: #3a7d44;
+    --critical: #b3261e;
+    --accent: #4956e3;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17181c;
+      --panel: #202127;
+      --border: #33343b;
+      --text: #e8e8ea;
+      --text-dim: #97979f;
+      --ok: #6fcf7c;
+      --critical: #ff6b60;
+      --accent: #8891f2;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17181c;
+    --panel: #202127;
+    --border: #33343b;
+    --text: #e8e8ea;
+    --text-dim: #97979f;
+    --ok: #6fcf7c;
+    --critical: #ff6b60;
+    --accent: #8891f2;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 0.9rem 1.25rem 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+  .titlebar { display: flex; align-items: baseline; gap: 0.7rem; flex-wrap: wrap; }
+  header h1 { font-size: 1.05rem; margin: 0; }
+  header .tag { font-size: 0.82rem; color: var(--text-dim); }
+  header .repo { margin-left: auto; font-size: 0.8rem; color: var(--accent); text-decoration: none; }
+  header .repo:hover { text-decoration: underline; }
+
+  nav { display: flex; gap: 0.2rem; margin-top: 0.75rem; flex-wrap: wrap; }
+  nav button {
+    font: inherit;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 0.45rem 0.75rem;
+    cursor: pointer;
+  }
+  nav button:hover { color: var(--text); }
+  nav button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+    padding: 0.6rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+  .toolbar.hidden { display: none; }
+  .toolbar select, .toolbar a.pop {
+    font: inherit;
+    font-size: 0.82rem;
+    padding: 0.25rem 0.45rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+  }
+  .toolbar a.pop { text-decoration: none; color: var(--accent); margin-left: auto; }
+
+  .pane { flex: 1 1 auto; min-height: 0; }
+  .pane.hidden { display: none; }
+  iframe { width: 100%; height: 100%; border: 0; display: block; background: var(--bg); }
+
+  .overview { overflow-y: auto; height: 100%; padding: 1.75rem 1.25rem 3rem; }
+  .overview-inner { max-width: 820px; margin: 0 auto; }
+  .overview h2 { font-size: 1rem; margin: 1.75rem 0 0.5rem; }
+  .overview h2:first-child { margin-top: 0; }
+  .overview p { font-size: 0.9rem; line-height: 1.6; color: var(--text-dim); margin: 0 0 0.75rem; }
+  .overview p strong, .overview li strong { color: var(--text); }
+  .overview code { font-family: var(--mono); font-size: 0.82em; background: var(--border); padding: 0.05rem 0.32rem; border-radius: 4px; }
+
+  .cards { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0.25rem 0 0.5rem; }
+  .card {
+    flex: 1 1 220px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card .ct { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.25rem; }
+  .card .cd { font-size: 0.8rem; color: var(--text-dim); line-height: 1.45; }
+
+  .facts { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0.5rem 0 0.25rem; }
+  .fact {
+    flex: 1 1 150px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    border-radius: 10px;
+    padding: 0.7rem 0.85rem;
+  }
+  .fact .fk { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); margin-bottom: 0.25rem; }
+  .fact .fv { font-size: 1.25rem; font-weight: 600; }
+  .fact .fn { font-size: 0.75rem; color: var(--text-dim); margin-top: 0.2rem; line-height: 1.4; }
+  .fact.good .fv { color: var(--ok); }
+  .fact.bad .fv { color: var(--critical); }
+
+  ul.tight { margin: 0 0 0.75rem; padding-left: 1.15rem; }
+  ul.tight li { font-size: 0.88rem; line-height: 1.6; color: var(--text-dim); margin-bottom: 0.3rem; }
+
+  .note {
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    background: var(--panel);
+    border-radius: 8px;
+    padding: 0.75rem 0.95rem;
+    font-size: 0.85rem;
+    line-height: 1.55;
+    color: var(--text-dim);
+    margin: 0.5rem 0 0.75rem;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="titlebar">
+    <h1>AgentLens</h1>
+    <span class="tag">A trace debugger for AI agents — find the step where it actually went wrong.</span>
+    <a class="repo" href="https://github.com/Shree-2004/agentlens" target="_blank" rel="noopener">GitHub ↗</a>
+  </div>
+  <nav id="tabs"></nav>
+</header>
+
+<div class="toolbar hidden" id="toolbar">
+  <label for="picker" id="picker-label">Diagnosis</label>
+  <select id="picker"></select>
+  <span id="picker-note"></span>
+  <a class="pop" id="pop" href="#" target="_blank" rel="noopener">Open in its own tab ↗</a>
+</div>
+
+<div class="pane hidden" id="pane-overview">
+  <div class="overview">
+    <div class="overview-inner">
+      <h2>What this is</h2>
+      <p>When a deterministic service breaks you get a stack trace. When an agent breaks you get a confident, well-formatted, silently wrong answer — and the real mistake is usually many steps upstream of the bad output. AgentLens finds that step: a deterministic rule layer for mechanical failures, and an LLM judge that reads the whole trajectory at once looking for a later claim that contradicts an earlier one.</p>
+
+      <h2>Start here</h2>
+      <div class="cards" id="cards"></div>
+
+      <h2>The result worth looking at</h2>
+      <p>A live run of a separate multi-agent project produced an unplanned contradiction: the Analyst states the 2024 Nobel Prize in Chemistry was awarded for protein-design work; the Critic, reviewing that same report two steps later, states the 2024 Nobel Prizes <em>have not yet been announced</em>. The judge missed it 5 times across two prompt versions. Requiring it to emit an extracted <code>claims</code> array <em>before</em> its verdict — making extraction a visible output rather than an instruction it could skip — fixed it.</p>
+      <p>In the <strong>Trace viewer</strong>, scroll to step 15. The contradiction sits on the page as two claims: the green step above says the prize was awarded, the red step says it wasn't.</p>
+
+      <h2>Where the numbers stand</h2>
+      <div class="facts">
+        <div class="fact good"><div class="fk">Regression check</div><div class="fv">19/21</div><div class="fn">completed runs correct after the structural fix, all 10 labeled traces</div></div>
+        <div class="fact good"><div class="fk">False positives</div><div class="fv">0</div><div class="fn">across the clean traces — the more important number</div></div>
+        <div class="fact"><div class="fk">Errored runs</div><div class="fv">42</div><div class="fn">API calls that never completed; excluded, never scored as "found nothing"</div></div>
+        <div class="fact bad"><div class="fk">Real traces</div><div class="fv">1</div><div class="fn">the honest limit — one live trace, the rest hand-authored</div></div>
+      </div>
+      <p>The <strong>Benchmark</strong> tab merges the report fragments that a free-tier daily cap forced across many sessions — within a prompt version, never across one.</p>
+
+      <h2>What this is not</h2>
+      <ul class="tight">
+        <li><strong>Not validated at scale.</strong> One real trace. Sample sizes of 1–11 runs per trace. Treat it as an early read, not a number with tight error bars.</li>
+        <li><strong>One known disagreement.</strong> On <code>silent_wrong_default</code> the judge reproducibly picks step 1 over the labeled step 3 — a defensible reading, reported rather than quietly excluded.</li>
+        <li><strong>The pre-fix 89% is not reproducible from this repo's data.</strong> It counts runs recorded outside the benchmark reports. The Benchmark tab's pre-fix era is tagged <em>partial set</em> for exactly that reason.</li>
+      </ul>
+
+      <div class="note">Everything here reads files straight off disk — no build step, no API key, no account. It needs a server only because browsers block <code>fetch()</code> on <code>file://</code> URLs: <code>python3 -m http.server</code> from the project root.</div>
+    </div>
+  </div>
+</div>
+
+<div class="pane hidden" id="pane-frame"><iframe id="frame" title="AgentLens view"></iframe></div>
+
+<script>
+  // Candidate diagnoses. output/diagnosis*.json are gitignored working
+  // files, so they exist locally but not in a fresh clone -- probe each one
+  // and list only what actually resolves, rather than offering a dead entry.
+  const DIAGNOSES = [
+    { file: "real_traces/multi_agent_research_live_diagnosis.json",
+      label: "Nobel Prize contradiction (real trace, 12 claims)" },
+    { file: "sample_traces/stale_plan_tier_with_judge_example.json",
+      label: "Stale plan tier (worked example, no claims)" },
+    { file: "output/diagnosis.json", label: "output/diagnosis.json (your last run)" },
+    { file: "output/diagnosis_timezone.json", label: "Timezone assumption (local)" },
+  ];
+
+  const ERAS = [
+    { id: "v2", label: "After the structural fix (full set)" },
+    { id: "v1", label: "Before the structural fix (partial set)" },
+    { id: "buggy-scorer", label: "Pre-bugfix scorer (do not trust)" },
+  ];
+
+  const TABS = [
+    { id: "overview", label: "Overview" },
+    { id: "viewer", label: "Trace viewer" },
+    { id: "benchmark", label: "Benchmark" },
+    { id: "demo", label: "Demo" },
+  ];
+
+  const frame = document.getElementById("frame");
+  const toolbar = document.getElementById("toolbar");
+  const picker = document.getElementById("picker");
+  const pickerLabel = document.getElementById("picker-label");
+  const pickerNote = document.getElementById("picker-note");
+  const pop = document.getElementById("pop");
+  let available = [];
+  let current = "overview";
+
+  function setFrame(url) {
+    // Only reload when the target actually changes, so switching tabs back
+    // and forth doesn't restart the demo animation or lose scroll position.
+    const resolved = new URL(url, location.href).href;
+    if (frame.src !== resolved) frame.src = url;
+    pop.href = url;
+  }
+
+  function showTab(id) {
+    current = id;
+    document.querySelectorAll("#tabs button").forEach((b) => {
+      b.setAttribute("aria-selected", String(b.dataset.tab === id));
+    });
+    document.getElementById("pane-overview").classList.toggle("hidden", id !== "overview");
+    document.getElementById("pane-frame").classList.toggle("hidden", id === "overview");
+    toolbar.classList.toggle("hidden", id !== "viewer" && id !== "benchmark");
+
+    if (id === "viewer") {
+      pickerLabel.textContent = "Diagnosis";
+      picker.textContent = "";
+      available.forEach((d) => picker.appendChild(new Option(d.label, d.file)));
+      pickerNote.textContent = available.length ? "" : "no diagnosis files found";
+      if (available.length) setFrame("output/viewer.html?embed=1&file=../" + picker.value);
+    } else if (id === "benchmark") {
+      pickerLabel.textContent = "Prompt version";
+      picker.textContent = "";
+      ERAS.forEach((e) => picker.appendChild(new Option(e.label, e.id)));
+      pickerNote.textContent = "";
+      setFrame("output/benchmark.html?embed=1&era=" + picker.value);
+    } else if (id === "demo") {
+      setFrame("demo.html");
+    }
+
+    const url = new URL(location.href);
+    if (id === "overview") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", id);
+    history.replaceState(null, "", url);
+  }
+
+  picker.addEventListener("change", () => {
+    if (current === "viewer") setFrame("output/viewer.html?embed=1&file=../" + picker.value);
+    else if (current === "benchmark") setFrame("output/benchmark.html?embed=1&era=" + picker.value);
+  });
+
+  TABS.forEach((t) => {
+    const b = document.createElement("button");
+    b.textContent = t.label;
+    b.dataset.tab = t.id;
+    b.setAttribute("role", "tab");
+    b.addEventListener("click", () => showTab(t.id));
+    document.getElementById("tabs").appendChild(b);
+  });
+
+  [
+    { tab: "viewer", ct: "Trace viewer", cd: "A 17-step live agent run, with the judge's extracted claims under the step each came from. Scroll to step 15." },
+    { tab: "benchmark", ct: "Benchmark", cd: "How the judge scores against the hand-labeled set. Click any row for its individual runs." },
+    { tab: "demo", ct: "Demo", cd: "A 30-second self-playing walkthrough of the catch, if you'd rather watch than read." },
+  ].forEach((c) => {
+    const b = document.createElement("button");
+    b.className = "card";
+    const t = document.createElement("div");
+    t.className = "ct";
+    t.textContent = c.ct;
+    const d = document.createElement("div");
+    d.className = "cd";
+    d.textContent = c.cd;
+    b.append(t, d);
+    b.addEventListener("click", () => showTab(c.tab));
+    document.getElementById("cards").appendChild(b);
+  });
+
+  Promise.all(DIAGNOSES.map((d) =>
+    fetch(d.file, { method: "HEAD" }).then((r) => (r.ok ? d : null)).catch(() => null)
+  )).then((found) => {
+    available = found.filter(Boolean);
+    const wanted = new URLSearchParams(location.search).get("tab");
+    showTab(TABS.some((t) => t.id === wanted) ? wanted : "overview");
+  });
+</script>
+</body>
+</html>

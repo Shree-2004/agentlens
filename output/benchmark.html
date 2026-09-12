@@ -199,9 +199,23 @@
   .footnote code { font-family: var(--mono); background: var(--border); padding: 0.05rem 0.3rem; border-radius: 4px; }
   .empty-state { color: var(--text-dim); font-size: 0.9rem; padding: 2rem 0; text-align: center; line-height: 1.6; }
   .empty-state code { font-family: var(--mono); background: var(--border); padding: 0.05rem 0.35rem; border-radius: 4px; }
+
+  /* ?embed=1 -- rendered inside index.html, which supplies its own
+     header and era picker. Showing ours too would stack two identical
+     dropdowns on top of each other. */
+  body.embedded { padding-top: 1.25rem; }
+  body.embedded > .wrap > header { display: none; }
+  /* !important: the manifest loader sets .controls display inline once
+     it knows the eras, and an inline style outranks a plain rule. */
+  body.embedded .controls { display: none !important; }
 </style>
 </head>
 <body>
+<script>
+  // Runs before paint so an embedded page never flashes its own header.
+  if (new URLSearchParams(location.search).get("embed") === "1")
+    document.currentScript.parentElement.classList.add("embedded");
+</script>
 <div class="wrap">
   <header>
     <h1>AgentLens — Judge Benchmark</h1>

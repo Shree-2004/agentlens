@@ -50,11 +50,15 @@ A `.env` file in the project root (gitignored) also works, via `python-dotenv`.
 
 **Gemini free tier note:** `generativelanguage.googleapis.com` caps free-tier usage at **20 requests/day per Google Cloud project per model**. The full benchmark (10 traces × 3 runs = 30 calls) doesn't fit in one day on a fresh free-tier project — plan accordingly, or use `--provider anthropic` (paid, no free daily cap) if you need it to finish in one sitting.
 
-Then open `output/viewer.html` in a browser. It defaults to [real_traces/multi_agent_research_live_diagnosis.json](real_traces/multi_agent_research_live_diagnosis.json) — the real Nobel Prize catch, described below — so it shows something real with no API key; append `?file=<path>` to point it at any other diagnosis. Browsers block `fetch()` against files opened directly from disk, so serve the folder instead:
+Then open **[index.html](index.html)** — one page with the trace viewer, the benchmark, and the demo behind tabs, plus pickers for which diagnosis and which prompt version to show. It's the front door; `python3 -m http.server` from the project root puts it at `http://localhost:8000/`.
+
+The individual pages still stand alone. `output/viewer.html` defaults to [real_traces/multi_agent_research_live_diagnosis.json](real_traces/multi_agent_research_live_diagnosis.json) — the real Nobel Prize catch, described below — so it shows something real with no API key; append `?file=<path>` to point it at any other diagnosis. Browsers block `fetch()` against files opened directly from disk, so serve the folder rather than opening the file:
 
 ```bash
 python3 -m http.server
-# then open http://localhost:8000/output/viewer.html
+# http://localhost:8000/                      -- everything, behind tabs
+# http://localhost:8000/output/viewer.html    -- just the trace viewer
+# http://localhost:8000/output/benchmark.html -- just the benchmark
 ```
 
 `sample_traces/tool_loop.json` is a mechanical failure the rule layer catches on its own (no API key needed): `python3 analyze.py sample_traces/tool_loop.json output/diagnosis.json --no-judge`. `stale_plan_tier_with_judge_example.json` is a worked example of judge output, for demoing the UI without an API key.

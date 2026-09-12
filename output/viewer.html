@@ -276,9 +276,16 @@
     text-align: center;
   }
   code.inline { font-family: var(--mono); background: var(--border); padding: 0.05rem 0.35rem; border-radius: 4px; }
+
+  /* ?embed=1 -- inside index.html, which already has the nav. */
+  body.embedded .navlink { display: none; }
 </style>
 </head>
 <body>
+<script>
+  if (new URLSearchParams(location.search).get("embed") === "1")
+    document.currentScript.parentElement.classList.add("embedded");
+</script>
 <div class="wrap">
   <header>
     <h1>AgentLens <a class="navlink" href="benchmark.html">Benchmark →</a></h1>
