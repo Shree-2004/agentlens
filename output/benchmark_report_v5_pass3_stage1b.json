@@ -1,0 +1,179 @@
+{
+  "n_runs_per_trace": 3,
+  "n_traces": 4,
+  "total_completed_runs": 12,
+  "total_errored_runs": 0,
+  "overall_accuracy": 1.0,
+  "false_positive_count": 0,
+  "false_negative_count": 0,
+  "judges": [
+    "groq/openai/gpt-oss-120b"
+  ],
+  "mixed_judges": false,
+  "per_trace": [
+    {
+      "trace": "duplicate_entity_confusion.json",
+      "expected_step": 3,
+      "expected_has_failure": true,
+      "notes": "Tool honestly reports two matching customers; the agent silently picks one without disambiguating.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 3,
+          "predicted_category": "unsupported_commitment",
+          "predicted_summary": "The agent arbitrarily chose one of multiple matching customers (C-1001) without disambiguation, leading to a potentially incorrect refund.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": 3,
+          "predicted_category": "unsupported_commitment",
+          "predicted_summary": "The agent arbitrarily chose one of two John Carter accounts (C-1001) without disambiguating, so the refund may have been applied to the wrong customer.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": 3,
+          "predicted_category": "unsupported_commitment",
+          "predicted_summary": "The agent arbitrarily selected one of multiple matching John Carter accounts (C-1001) without disambiguation, committing to a specific customer when several were possible.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "silent_wrong_default.json",
+      "expected_step": 3,
+      "expected_has_failure": true,
+      "notes": "Tool transparently reports it applied a default (via a note field); the agent doesn't register the note and treats the result as valid.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 3,
+          "predicted_category": "misread_tool_result",
+          "predicted_summary": "The agent ignored the tool's note that no conversion was performed and treated the unchanged amount as a valid EUR\u2011to\u2011USD conversion.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": 3,
+          "predicted_category": "misread_tool_result",
+          "predicted_summary": "The agent ignored the tool's note that conversion defaulted to the same currency, treating the 250 as USD and thus providing an incorrect amount.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": 3,
+          "predicted_category": "dropped_caveat",
+          "predicted_summary": "The agent ignored the tool's note that no target currency was specified and defaulted conversion, treating the 250 amount as a valid EUR\u2011to\u2011USD conversion.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "clean_success_refund.json",
+      "expected_step": null,
+      "expected_has_failure": false,
+      "notes": "True negative: task completed correctly, nothing contradicted.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "clean_success_flight.json",
+      "expected_step": null,
+      "expected_has_failure": false,
+      "notes": "True negative: task completed correctly, nothing contradicted.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    }
+  ]
+}

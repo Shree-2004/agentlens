@@ -2,6 +2,16 @@
   "_comment": "Which benchmark reports belong together. Gemini's free-tier daily cap forced the benchmark to be run in fragments across many sessions, so no single report holds the full picture -- but runs from different judge prompt versions must never be pooled, since that would average away the exact signal the prompt change was made to test. This file makes that grouping reviewable data rather than a filename-prefix guess hidden in JavaScript. benchmark.html merges within an era and refuses to merge across. Each era also records the judge that produced it. The report files predate run_benchmark.py stamping the provider on every run, so for these the judge comes from the project's own records (the Gemini free-tier cap documented in the README is what forced them into fragments) rather than from the data. Reports written from now on carry a \"judges\" array and a \"mixed_judges\" flag, and benchmark.html prefers those over this field.",
   "eras": [
     {
+      "id": "v5-pass3",
+      "label": "PASS 3 added (support checks)",
+      "prompt": "Adds a third pass over the same extracted claims: (a) unsupported commitment -- a claim settles on one of several surfaced options with nothing justifying the choice, gated on whether the options are interchangeable for the task; (b) dropped caveat -- a claim repeats a value while leaving behind a qualifier attached to it at its source.",
+      "description": "Built to close the gap the cross-model run exposed: two traces failing on every model because their failures are not contradictions. 30/30 correct, zero false positives. Read with care -- PASS 3 was developed against this benchmark across three iterations, so this run is partly in-sample and is not an independent test of the change. The genuinely held-out check is the real trace, which still lands on step 15.",
+      "judge": "groq/openai/gpt-oss-120b",
+      "reports": [
+        "benchmark_report_v5_pass3.json"
+      ]
+    },
+    {
       "id": "v2",
       "label": "After the structural fix",
       "prompt": "Judge prompt requires a \"claims\" array emitted before the verdict, forcing claim extraction to be a visible output rather than an internal instruction.",

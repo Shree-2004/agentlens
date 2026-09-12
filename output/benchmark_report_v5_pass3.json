@@ -1,0 +1,425 @@
+{
+  "n_runs_per_trace": 3,
+  "n_traces": 10,
+  "total_completed_runs": 30,
+  "total_errored_runs": 0,
+  "overall_accuracy": 1.0,
+  "false_positive_count": 0,
+  "false_negative_count": 0,
+  "judges": [
+    "groq/openai/gpt-oss-120b"
+  ],
+  "mixed_judges": false,
+  "per_trace": [
+    {
+      "trace": "stale_plan_tier.json",
+      "expected_step": 2,
+      "expected_has_failure": true,
+      "notes": "Stale cached fact contradicted by a later tool result, never reconciled.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 2,
+          "predicted_category": "stale_fact",
+          "predicted_summary": "The agent relied on a cached plan result from 2026-01-14 indicating a Free tier, ignoring a more recent payment on 2026-08-01 that upgraded the user to Pro, leading to an incorrect denial of bulk export.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": 2,
+          "predicted_category": "stale_fact",
+          "predicted_summary": "The agent trusted a cached plan indicating the user is on the Free tier, despite a later billing record showing a Pro plan, leading to the wrong conclusion that bulk export is unavailable.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": 2,
+          "predicted_category": "stale_fact",
+          "predicted_summary": "The agent used a stale cached plan indicating the user was on the Free tier (step 2) despite later billing data showing a Pro plan, leading to contradictory conclusions about bulk export eligibility.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "timezone_assumption.json",
+      "expected_step": 0,
+      "expected_has_failure": true,
+      "notes": "Unchecked early assumption, explicitly contradicted by a tool result three steps later.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 0,
+          "predicted_category": "stale_fact",
+          "predicted_summary": "The agent assumed the user was in America/New_York and scheduled the reminder at 9\u202fam ET, but later learned the user\u2019s actual timezone is Asia/Kolkata, making the scheduled time incorrect.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": 0,
+          "predicted_category": "stale_fact",
+          "predicted_summary": "The agent assumed the user's timezone as America/New_York without verifying, causing the reminder to be scheduled at 9\u202fam Eastern and later incorrectly claiming it was 9\u202fam in the user's actual timezone (Asia/Kolkata).",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": 0,
+          "predicted_category": "stale_fact",
+          "predicted_summary": "The agent assumed the user was in America/New_York before checking the profile, so it scheduled the reminder at 9\u202fam Eastern time instead of the user's actual Asia/Kolkata timezone.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "misread_units.json",
+      "expected_step": 3,
+      "expected_has_failure": true,
+      "notes": "Tool result is correct (amount_cents); the agent misreads it as dollars. No stale/contradicted fact -- the error is a misinterpretation of a single correct value.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 3,
+          "predicted_category": "misread_tool_result",
+          "predicted_summary": "The agent misinterpreted the tool result of 4200 cents as $4200, causing an incorrect free\u2011shipping qualification.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": 3,
+          "predicted_category": "misread_tool_result",
+          "predicted_summary": "The agent misinterpreted the 4200 cents returned by the tool as $4200, falsely concluding the order exceeds $500 and qualifies for free shipping.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": 3,
+          "predicted_category": "misread_tool_result",
+          "predicted_summary": "Step 3 misinterpreted the tool result (4200 cents) as $4200, creating a false premise that the order exceeds $500, leading to an incorrect free\u2011shipping qualification.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "duplicate_entity_confusion.json",
+      "expected_step": 3,
+      "expected_has_failure": true,
+      "notes": "Tool honestly reports two matching customers; the agent silently picks one without disambiguating.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 3,
+          "predicted_category": "unsupported_commitment",
+          "predicted_summary": "The agent chose one of two possible John Carter accounts (C-1001) without any disambiguation, dropping the ambiguity reported earlier and making an unsupported commitment.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": 3,
+          "predicted_category": "unsupported_commitment",
+          "predicted_summary": "The agent chose customer C-1001 as John Carter\u2019s account despite two possible matches, without any justification, leading to an unsupported commitment.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": 3,
+          "predicted_category": "unsupported_commitment",
+          "predicted_summary": "The agent arbitrarily chose customer C-1001 as John Carter's account despite two matching records, without justification, risking a refund to the wrong customer.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "compounding_rounding_error.json",
+      "expected_step": 3,
+      "expected_has_failure": true,
+      "notes": "Hard case: an internal rounding decision causes a ~14% downstream error, but nothing in the trace explicitly contradicts it. Tests whether a judge designed to spot contradictions can catch an error with no contradiction to find.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 3,
+          "predicted_category": "stale_fact",
+          "predicted_summary": "The agent incorrectly rounded the unit price from the retrieved $0.0175 to $0.02 in step 3, leading to a wrong total calculation.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": 3,
+          "predicted_category": "dropped_caveat",
+          "predicted_summary": "Step\u202f3 rounded the exact unit price $0.0175 to $0.02, discarding the tool\u2011provided precision and inflating the final cost.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": 3,
+          "predicted_category": "misread_tool_result",
+          "predicted_summary": "The agent incorrectly rounded the unit price from 0.0175\u202fUSD to $0.02, leading to a wrong total cost calculation.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "misattributed_source.json",
+      "expected_step": 5,
+      "expected_has_failure": true,
+      "notes": "Two retrieved documents conflict; the agent relies on the one marked legacy/superseded instead of the current one it already has.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 5,
+          "predicted_category": "stale_fact",
+          "predicted_summary": "The agent relied on an outdated Premium Membership Policy despite a newer shipping policy that supersedes it, leading to the false claim that Premium members have free standard shipping regardless of order amount.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": 5,
+          "predicted_category": "stale_fact",
+          "predicted_summary": "The agent relied on a superseded Premium Membership policy to assert free shipping for Premium members, ignoring the current policy that overrides it.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": 5,
+          "predicted_category": "dropped_caveat",
+          "predicted_summary": "The agent relied on a legacy Premium Membership policy that was superseded, dropping the qualifier that it no longer applies, and thus incorrectly asserted free shipping for Premium members regardless of order amount.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "outdated_permission_role.json",
+      "expected_step": 2,
+      "expected_has_failure": true,
+      "notes": "Stale cached role; compounded by misreading the audit log result that later contradicts it.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 2,
+          "predicted_category": "stale_fact",
+          "predicted_summary": "The agent relied on a cached role (valid as of 2026-05-01) without accounting for a later revocation on 2026-07-20, leading to an incorrect grant of dashboard access.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": 2,
+          "predicted_category": "stale_fact",
+          "predicted_summary": "The agent relied on a cached role (step 2) that was outdated after a revocation event (step 5), leading to granting access incorrectly.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": 2,
+          "predicted_category": "stale_fact",
+          "predicted_summary": "The agent relied on a cached role (Finance Admin) from 2026-05-01, ignoring a later revocation event on 2026-07-20, leading to granting access incorrectly.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "silent_wrong_default.json",
+      "expected_step": 3,
+      "expected_has_failure": true,
+      "notes": "Tool transparently reports it applied a default (via a note field); the agent doesn't register the note and treats the result as valid.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 3,
+          "predicted_category": "dropped_caveat",
+          "predicted_summary": "The agent ignored the tool's note that conversion was not performed and assumed the amount was $250 USD, leading to an incorrect answer.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": 3,
+          "predicted_category": "dropped_caveat",
+          "predicted_summary": "The agent ignored the tool's note that no target currency was specified and thus no conversion occurred, treating the unchanged amount as USD.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": 3,
+          "predicted_category": "misread_tool_result",
+          "predicted_summary": "The agent ignored the tool's note that conversion defaulted to the same currency, incorrectly asserting a USD amount.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "clean_success_refund.json",
+      "expected_step": null,
+      "expected_has_failure": false,
+      "notes": "True negative: task completed correctly, nothing contradicted.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "clean_success_flight.json",
+      "expected_step": null,
+      "expected_has_failure": false,
+      "notes": "True negative: task completed correctly, nothing contradicted.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    }
+  ]
+}

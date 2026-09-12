@@ -44,7 +44,7 @@ A single contradicting sentence can be buried inside thousands of words of
 otherwise-correct reasoning or report text; don't let the surrounding
 length hide it.
 
-You MUST do this in two passes, and the first pass is a required part of
+You MUST do this in three passes, and the first pass is a required part of
 your output, not just internal reasoning you can skip:
 
 PASS 1 -- EXTRACT. Go through every step in order. For each one, pull out
@@ -58,21 +58,67 @@ list on a long trace is a sign you skipped this pass; do not skip it.
 
 PASS 2 -- COMPARE. Only after PASS 1 is complete, compare every pair of
 claims that refer to the same real-world thing (the same event, the same
-entity, the same fact) and check whether they agree. A contradiction found
-here is what determines has_failure below.
+entity, the same fact) and check whether they agree.
+
+PASS 3 -- CHECK SUPPORT. A trajectory can be wrong without ever
+contradicting itself. Go back over the claims a second time and ask two
+further questions:
+
+  (a) UNSUPPORTED COMMITMENT. Does any claim settle on one option where an
+      earlier claim established that several were possible, with nothing
+      in between justifying that particular choice?
+
+      Before flagging this, apply one test: ARE THE OPTIONS
+      INTERCHANGEABLE FOR THIS TASK? Picking an arbitrary one of several
+      equally valid ways to satisfy the request is what a competent agent
+      does; it is not a failure and must not be flagged.
+
+        - A warehouse reports four identical units of a part in stock and
+          the task is to ship one: interchangeable. Any unit completes the
+          task correctly. NOT a failure.
+        - A search returns two unrelated invoices that happen to carry the
+          same reference number, and the task is to void that invoice: NOT
+          interchangeable. They belong to different accounts, only one is
+          the right one, and picking either without checking risks voiding
+          the wrong one.
+
+      The question is not "did the agent explain its choice" -- agents
+      rarely do. It is "could this choice be wrong in a way that matters?"
+      If every option would satisfy the task equally, there is no failure.
+      Flag it only when the options are materially different and the
+      agent had no basis for choosing between them.
+
+  (b) DROPPED CAVEAT. Does any claim restate a value while leaving behind
+      a qualifier attached to it at its source? A tool result that carries
+      a note, warning, default-applied flag, or partial-result marker is
+      making two statements, not one. If a later step repeats the headline
+      number as if the qualifier were not there, the qualifier was lost.
+      The conflict here sits inside a single step's payload, so PASS 2
+      will not see it.
+
+Be strict about what counts. An agent choosing between genuinely
+equivalent options, or taking a normal next step that nothing casts doubt
+on, is not a failure -- it is an agent doing its job. Only flag (a) when
+the ambiguity was explicitly surfaced and left unresolved, and (b) when
+the source actually carried a qualifier that the later claim dropped. If
+you are reaching for a reason, there is no failure: say so.
+
+has_failure is true if PASS 2 or PASS 3 finds something.
 
 Respond with a single JSON object and nothing else:
 {
   "claims": [{"step": int, "claim": string}],  // PASS 1 output -- required, fill this in first
   "has_failure": bool,
   "critical_step": int | null,   // where the wrong premise was INTRODUCED, not where it became visible
-  "category": string | null,     // e.g. "stale_fact", "contradicted_assumption", "misread_tool_result", "other"
+  "category": string | null,     // e.g. "stale_fact", "contradicted_assumption", "misread_tool_result",
+                                 // "unsupported_commitment", "dropped_caveat", "other"
   "confidence": "high" | "medium" | "low",
   "summary": string,             // one sentence: what went wrong and why this step is the root cause
-  "contradictions": [string]     // the early fact vs. the later fact that conflicts with it
+  "contradictions": [string]     // the conflicting facts, or for PASS 3 the commitment and what was
+                                 // left unresolved / the value and the qualifier dropped from it
 }
 
-If PASS 2 finds no contradiction, set has_failure to false and leave
+If PASS 2 and PASS 3 both find nothing, set has_failure to false and leave
 critical_step/category/contradictions null / empty -- but "claims" is
 still required either way."""
 

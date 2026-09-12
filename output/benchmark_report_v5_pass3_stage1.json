@@ -1,0 +1,179 @@
+{
+  "n_runs_per_trace": 3,
+  "n_traces": 4,
+  "total_completed_runs": 12,
+  "total_errored_runs": 0,
+  "overall_accuracy": 0.9166666666666666,
+  "false_positive_count": 1,
+  "false_negative_count": 0,
+  "judges": [
+    "groq/openai/gpt-oss-120b"
+  ],
+  "mixed_judges": false,
+  "per_trace": [
+    {
+      "trace": "duplicate_entity_confusion.json",
+      "expected_step": 3,
+      "expected_has_failure": true,
+      "notes": "Tool honestly reports two matching customers; the agent silently picks one without disambiguating.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 3,
+          "predicted_category": "unsupported_commitment",
+          "predicted_summary": "The agent arbitrarily chose customer C-1001 as John Carter despite two matching records, without justification, leading to a potentially incorrect refund.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": 3,
+          "predicted_category": "unsupported_commitment",
+          "predicted_summary": "The agent arbitrarily chose customer C-1001 as John Carter without resolving the ambiguity between two matching records.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": 3,
+          "predicted_category": "unsupported_commitment",
+          "predicted_summary": "The agent chose customer C-1001 without disambiguating the two matching John Carter records, committing to an unsupported assumption.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "silent_wrong_default.json",
+      "expected_step": 3,
+      "expected_has_failure": true,
+      "notes": "Tool transparently reports it applied a default (via a note field); the agent doesn't register the note and treats the result as valid.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 3,
+          "predicted_category": "dropped_caveat",
+          "predicted_summary": "The agent dropped the tool's note that the conversion defaulted to the same amount, falsely claiming 250 EUR was converted to $250 USD.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": 3,
+          "predicted_category": "dropped_caveat",
+          "predicted_summary": "The agent ignored the tool's note that conversion was not performed and assumed a $250 USD result, dropping the qualifier that the amount was unchanged.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": 3,
+          "predicted_category": "dropped_caveat",
+          "predicted_summary": "The agent ignored the tool's note that the conversion defaulted to the same currency, treating 250 EUR as 250 USD.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "clean_success_refund.json",
+      "expected_step": null,
+      "expected_has_failure": false,
+      "notes": "True negative: task completed correctly, nothing contradicted.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "clean_success_flight.json",
+      "expected_step": null,
+      "expected_has_failure": false,
+      "notes": "True negative: task completed correctly, nothing contradicted.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 3,
+          "predicted_category": "unsupported_commitment",
+          "predicted_summary": "The agent selected seat 12A from a list of three available window seats without providing any justification, resulting in an unsupported commitment.",
+          "correct": false,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 0.6666666666666666,
+      "self_consistency": 0.6666666666666666
+    }
+  ]
+}

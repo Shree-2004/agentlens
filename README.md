@@ -255,6 +255,29 @@ This reframes both persistent failures as one structural gap rather than two mod
 
 The obvious next experiment is a PASS 3 that asks two more questions of the same extracted claims — *is every commitment supported by something?* and *does any claim repeat a value while dropping the caveat attached to it?* Whether that improves detection without costing false positives on the clean traces is exactly the kind of thing the benchmark now exists to answer, and — since the full run finally fits in one sitting — can be answered in an afternoon rather than a fortnight.
 
+### Closing the gap: PASS 3
+
+The limitation above suggested its own fix. The evidence was already in the claims array; PASS 2 just never asked a question that would use it. So the prompt gained a third pass over the same claims, asking two more things:
+
+- **Unsupported commitment** — does a claim settle on one of several surfaced options with nothing justifying the choice?
+- **Dropped caveat** — does a claim repeat a value while leaving behind a qualifier attached to it at its source?
+
+**Result: 30/30, zero false positives, zero false negatives.** Every trace 3/3, including `silent_wrong_default`, which no model had ever scored correctly before. Full report: [output/benchmark_report_v5_pass3.json](output/benchmark_report_v5_pass3.json).
+
+That number needs three caveats, and they matter more than it does.
+
+**It is partly in-sample.** PASS 3 took three iterations, each informed by watching it fail on this benchmark. That is legitimate development, but it means this run is no longer an independent test of the change. A benchmark used to build a fix cannot also certify it.
+
+**The first version scraped a false positive, and it was instructive.** PASS 3(a) flagged `clean_success_flight` — the agent picking seat 12A from three available window seats. Structurally that is *identical* to `duplicate_entity_confusion`: several options surfaced, one chosen without justification. The difference is entirely semantic. Three window seats are interchangeable; two different people who share a name are not. So "unsupported commitment" cannot be decided structurally at all — it needs a judgement about whether the options are materially different. Making that test explicit fixed it.
+
+**The examples in that test were contaminated, then weren't.** The first sharpening illustrated interchangeability with *the benchmark's own two traces* — seats and duplicate customers. That scored 12/12 and meant nothing: the answers were in the prompt. Replacing them with unrelated cases (identical warehouse parts; two invoices sharing a reference number) and re-running gave 11/12 with zero false positives, which is the number worth trusting. The final prompt contains no example drawn from the test set.
+
+**The held-out check passed.** The real multi-agent trace — never used to develop any of this — still lands on step 15 with 12 claims extracted and high confidence. PASS 3 did not cost the Nobel Prize catch.
+
+What is genuinely established: the two failure shapes named above are reachable by prompt, not structural limits of the approach. What is not: that 100% survives contact with traces nobody here has seen.
+
+**One practical discovery.** Groq's free tier caps at 8,000 tokens per minute, and the real trace is ~14,700. Groq made the synthetic benchmark fast — it cannot judge the long real traces at all, which are exactly the interesting data. The real-trace check above ran on Gemini. Free tiers trade a request cap for a context cap; neither is free.
+
 ### The real-trace test
 
 Every trace above was hand-authored — built specifically to contain (or not contain) a failure. That's a structural limitation of any benchmark built this way: a tool that finds problems in traces designed for it to find doesn't prove much about traces nobody designed for it. So [capture_real_trace.py](capture_real_trace.py) does something different: it monkeypatches the actual tool calls and LLM invocations of a separate, real project — [Multi-Agent Research Assistant](https://github.com/Shree-2004/Multi-Agent-Research-Assistant)'s researcher → analyst → writer → critic pipeline — and records what genuinely happens on a live, unmodified run, with no pre-known answer. Output: [real_traces/multi_agent_research_live.json](real_traces/multi_agent_research_live.json).
