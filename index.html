@@ -12,8 +12,12 @@
     --text: #1a1a1e;
     --text-dim: #6b6b73;
     --ok: #3a7d44;
+    --ok-bg: #eaf5ec;
+    --tainted: #9a6b00;
+    --tainted-bg: #fbf1dd;
     --critical: #b3261e;
     --accent: #4956e3;
+    --code-bg: #f2f2f4;
     --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   }
   @media (prefers-color-scheme: dark) {
@@ -24,8 +28,12 @@
       --text: #e8e8ea;
       --text-dim: #97979f;
       --ok: #6fcf7c;
+      --ok-bg: #1c2d1f;
+      --tainted: #e0b03a;
+      --tainted-bg: #33290f;
       --critical: #ff6b60;
       --accent: #8891f2;
+      --code-bg: #191a1f;
     }
   }
   :root[data-theme="dark"] {
@@ -35,8 +43,12 @@
     --text: #e8e8ea;
     --text-dim: #97979f;
     --ok: #6fcf7c;
+    --ok-bg: #1c2d1f;
+    --tainted: #e0b03a;
+    --tainted-bg: #33290f;
     --critical: #ff6b60;
     --accent: #8891f2;
+    --code-bg: #191a1f;
   }
 
   * { box-sizing: border-box; }
@@ -108,6 +120,7 @@
   .overview p { font-size: 0.9rem; line-height: 1.6; color: var(--text-dim); margin: 0 0 0.75rem; }
   .overview p strong, .overview li strong { color: var(--text); }
   .overview code { font-family: var(--mono); font-size: 0.82em; background: var(--border); padding: 0.05rem 0.32rem; border-radius: 4px; }
+  .overview a { color: var(--accent); }
 
   .cards { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0.25rem 0 0.5rem; }
   .card {
@@ -152,6 +165,101 @@
     line-height: 1.55;
     color: var(--text-dim);
     margin: 0.5rem 0 0.75rem;
+  }
+  .note.warn { border-left-color: var(--tainted); }
+
+  /* Get started — numbered steps down a rail. */
+  .steps { counter-reset: step; margin-top: 0.5rem; }
+  .step-item {
+    position: relative;
+    padding: 0 0 1.5rem 2.6rem;
+    border-left: 2px solid var(--border);
+    margin-left: 0.85rem;
+  }
+  .step-item:last-child { border-left-color: transparent; padding-bottom: 0.5rem; }
+  .step-item::before {
+    counter-increment: step;
+    content: counter(step);
+    position: absolute;
+    left: -0.95rem;
+    top: -0.15rem;
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 50%;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .step-item.optional::before { border-style: dashed; }
+  .step-item h3 {
+    font-size: 0.94rem;
+    margin: 0 0 0.35rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .step-item p { margin: 0 0 0.6rem; font-size: 0.87rem; }
+  .req {
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+  }
+  .req.free { background: var(--ok-bg); color: var(--ok); }
+  .req.key { background: var(--tainted-bg); color: var(--tainted); }
+  .req.opt { background: var(--border); color: var(--text-dim); }
+
+  .code {
+    position: relative;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin: 0 0 0.6rem;
+  }
+  .code pre {
+    margin: 0;
+    padding: 0.7rem 4.2rem 0.7rem 0.85rem;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    line-height: 1.55;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--text);
+  }
+  .code .cmt { color: var(--text-dim); }
+  .copy {
+    position: absolute;
+    top: 0.45rem;
+    right: 0.45rem;
+    font: inherit;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.15rem 0.5rem;
+    cursor: pointer;
+  }
+  .copy:hover { color: var(--text); border-color: var(--accent); }
+  .copy.done { color: var(--ok); border-color: var(--ok); }
+
+  .inline-link {
+    font: inherit;
+    font-size: inherit;
+    color: var(--accent);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-decoration: underline;
   }
 </style>
 </head>
@@ -206,6 +314,86 @@
   </div>
 </div>
 
+<div class="pane hidden" id="pane-start">
+  <div class="overview">
+    <div class="overview-inner">
+      <h2>Get started</h2>
+      <p>Seven steps in the order that costs you the least, plus an optional eighth. Steps 1–2 need nothing but Python — the rule layer is deterministic and makes no API call, so you can watch AgentLens catch a real failure before deciding whether to spend a key on it. Everything from step 4 on calls an LLM.</p>
+
+      <div class="note">You're already past step 1 if you're reading this — it's served from your own clone.</div>
+
+      <div class="steps">
+        <div class="step-item">
+          <h3>Clone and install <span class="req free">no API key</span></h3>
+          <p>Three dependencies: the two LLM SDKs and <code>python-dotenv</code>. Python 3.10 or newer.</p>
+          <div class="code"><pre>git clone https://github.com/Shree-2004/agentlens.git
+cd agentlens
+pip install -r requirements.txt</pre></div>
+        </div>
+
+        <div class="step-item">
+          <h3>See it catch something, free <span class="req free">no API key</span></h3>
+          <p><code>tool_loop.json</code> is a mechanical failure — the same tool called with identical arguments three times. The rule layer finds it with no LLM involved, so this works offline and proves your install is sound.</p>
+          <div class="code"><pre>python3 analyze.py sample_traces/tool_loop.json output/diagnosis.json --no-judge</pre></div>
+          <p>You should see <code>Critical step: 7 (tool_call_loop, high confidence, via rule)</code>.</p>
+        </div>
+
+        <div class="step-item">
+          <h3>Serve the pages <span class="req free">no API key</span></h3>
+          <p>Browsers block <code>fetch()</code> on <code>file://</code> URLs, so the UI needs a server — any static one will do. Run this from the project root and this page lives at <code>http://localhost:8000/</code>.</p>
+          <div class="code"><pre>python3 -m http.server</pre></div>
+          <p>Nothing is uploaded anywhere. Every page here reads JSON off your disk.</p>
+        </div>
+
+        <div class="step-item">
+          <h3>Add an API key <span class="req key">key needed</span></h3>
+          <p>Either provider works — the judge auto-detects whichever is set, checking Anthropic first if both are. Put them in a <code>.env</code> file in the project root (gitignored) or export them.</p>
+          <div class="code"><pre><span class="cmt"># pick one</span>
+export ANTHROPIC_API_KEY=sk-ant-...
+export GOOGLE_API_KEY=...</pre></div>
+          <div class="note warn"><strong>Gemini's free tier caps at 20 requests/day</strong> per project per model. That is the single biggest practical constraint on this project — it is why the benchmark below was run in fragments across many sessions. Anthropic is paid but has no daily cap.</div>
+        </div>
+
+        <div class="step-item">
+          <h3>Diagnose a trace with the judge <span class="req key">key needed</span></h3>
+          <p>Now the semantic layer runs: the judge reads the whole trajectory at once, extracts every checkable claim, and compares them against each other looking for a contradiction.</p>
+          <div class="code"><pre>python3 analyze.py sample_traces/stale_plan_tier.json output/diagnosis.json</pre></div>
+          <p>It should land on step 2 — where a stale cached "free tier" fact enters, three steps before the billing record that contradicts it.</p>
+        </div>
+
+        <div class="step-item">
+          <h3>Look at what it found <span class="req free">no API key</span></h3>
+          <p>Open the <button class="inline-link" data-goto="viewer">Trace viewer</button> tab and pick <code>output/diagnosis.json</code> from the dropdown. The timeline turns red at the critical step, amber for everything downstream of it, and the judge's extracted claims sit under the step each came from.</p>
+          <p>Refresh this page after any new run — the picker only lists diagnosis files that actually exist.</p>
+        </div>
+
+        <div class="step-item">
+          <h3>Score the judge yourself <span class="req key">key needed</span></h3>
+          <p>Don't take the numbers on the <button class="inline-link" data-goto="benchmark">Benchmark</button> tab on faith — regenerate them. This runs every labeled trace N times and scores each run against a label written before the judge ever saw it.</p>
+          <div class="code"><pre>python3 run_benchmark.py 3 --output output/benchmark_report_v3.json</pre></div>
+          <div class="note warn">10 traces × 3 runs = <strong>30 calls</strong>, which does not fit in Gemini's free daily cap. Use <code>--only trace1.json,trace2.json</code> to run a subset, or <code>--provider anthropic</code> to finish in one sitting.</div>
+          <p>To see a new report in the Benchmark tab, add its filename to <code>output/benchmark_manifest.json</code> under the prompt version it belongs to. That step is deliberate friction: pooling runs from different judge prompts would average away the exact difference a prompt change was made to measure.</p>
+        </div>
+
+        <div class="step-item optional">
+          <h3>Point it at your own agent <span class="req opt">optional</span></h3>
+          <p>Traces are plain JSON — a task plus ordered steps — so you can write an adapter for any agent. If yours is already instrumented with <a href="https://langfuse.com/" target="_blank" rel="noopener">Langfuse</a>, there's one built in.</p>
+          <div class="code"><pre>pip install langfuse
+export LANGFUSE_PUBLIC_KEY=pk-lf-...
+export LANGFUSE_SECRET_KEY=sk-lf-...
+python3 analyze.py --langfuse-trace-id &lt;id&gt; output/diagnosis.json</pre></div>
+          <div class="note warn">Honest status: the Langfuse adapter is verified against fixtures, <strong>not yet against a live Langfuse project</strong>. The mapping is self-consistent; whether it matches what a real instance returns is untested.</div>
+        </div>
+      </div>
+
+      <h2>Checking the tests</h2>
+      <p>Both suites are pure Python with stubbed data — no network, no account, no API key.</p>
+      <div class="code"><pre>python3 test_claims_plumbing.py    <span class="cmt"># claims survive verdict → viewer</span>
+python3 test_langfuse_adapter.py   <span class="cmt"># the Langfuse → AgentLens mapping</span></pre></div>
+    </div>
+  </div>
+</div>
+
 <div class="pane hidden" id="pane-frame"><iframe id="frame" title="AgentLens view"></iframe></div>
 
 <script>
@@ -217,7 +405,7 @@
       label: "Nobel Prize contradiction (real trace, 12 claims)" },
     { file: "sample_traces/stale_plan_tier_with_judge_example.json",
       label: "Stale plan tier (worked example, no claims)" },
-    { file: "output/diagnosis.json", label: "output/diagnosis.json (your last run)" },
+    { file: "output/diagnosis.json", label: "output/diagnosis.json (whatever you last ran)" },
     { file: "output/diagnosis_timezone.json", label: "Timezone assumption (local)" },
   ];
 
@@ -229,6 +417,7 @@
 
   const TABS = [
     { id: "overview", label: "Overview" },
+    { id: "start", label: "Get started" },
     { id: "viewer", label: "Trace viewer" },
     { id: "benchmark", label: "Benchmark" },
     { id: "demo", label: "Demo" },
@@ -256,8 +445,11 @@
     document.querySelectorAll("#tabs button").forEach((b) => {
       b.setAttribute("aria-selected", String(b.dataset.tab === id));
     });
-    document.getElementById("pane-overview").classList.toggle("hidden", id !== "overview");
-    document.getElementById("pane-frame").classList.toggle("hidden", id === "overview");
+    const STATIC_PANES = { overview: "pane-overview", start: "pane-start" };
+    Object.entries(STATIC_PANES).forEach(([tab, pane]) => {
+      document.getElementById(pane).classList.toggle("hidden", id !== tab);
+    });
+    document.getElementById("pane-frame").classList.toggle("hidden", id in STATIC_PANES);
     toolbar.classList.toggle("hidden", id !== "viewer" && id !== "benchmark");
 
     if (id === "viewer") {
@@ -312,6 +504,37 @@
     b.append(t, d);
     b.addEventListener("click", () => showTab(c.tab));
     document.getElementById("cards").appendChild(b);
+  });
+
+  // Copy buttons on every code block. Written from the block's own text so
+  // the button can never drift out of sync with what is displayed.
+  document.querySelectorAll(".code").forEach((block) => {
+    const pre = block.querySelector("pre");
+    const btn = document.createElement("button");
+    btn.className = "copy";
+    btn.type = "button";
+    btn.textContent = "copy";
+    btn.addEventListener("click", () => {
+      // Strip the commentary so a paste runs as-is.
+      const text = [...pre.childNodes]
+        .filter((n) => !(n.nodeType === 1 && n.classList.contains("cmt")))
+        .map((n) => n.textContent)
+        .join("")
+        .split(/\r?\n/)
+        .map((l) => l.trimEnd())
+        .filter((l) => l.length)
+        .join("\n");
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = "copied";
+        btn.classList.add("done");
+        setTimeout(() => { btn.textContent = "copy"; btn.classList.remove("done"); }, 1400);
+      }, () => { btn.textContent = "press Ctrl+C"; });
+    });
+    block.appendChild(btn);
+  });
+
+  document.querySelectorAll("[data-goto]").forEach((el) => {
+    el.addEventListener("click", () => showTab(el.dataset.goto));
   });
 
   Promise.all(DIAGNOSES.map((d) =>
