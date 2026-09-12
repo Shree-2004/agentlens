@@ -352,7 +352,7 @@ pip install -r requirements.txt</pre></div>
 export GROQ_API_KEY=gsk_...
 export ANTHROPIC_API_KEY=sk-ant-...
 export GOOGLE_API_KEY=...</pre></div>
-          <p><strong>Start with Groq</strong> if you don't already have a key. Its free tier allows around 1,000 requests/day, against Gemini's 20 — which is the difference between running the whole benchmark in one sitting and spreading it across a week.</p>
+          <p><strong>Start with Groq</strong> if you don't already have a key. Its free tier allows around 1,000 requests/day, against Gemini's 20 — which is the difference between running the whole benchmark in one sitting and spreading it across a week. The default model is <code>openai/gpt-oss-120b</code>; if you see <code>model_not_found</code>, your account has a different catalogue — pass <code>--model &lt;id&gt;</code> with one it does have.</p>
           <div class="note warn"><strong>Gemini's free tier caps at 20 requests/day</strong> per project per model. That is why the recorded benchmark below was run in fragments across many sessions. Anthropic is paid with no daily cap. Groq's daily <em>token</em> budget is the real ceiling there, not the request count — long traces are token-heavy.</div>
           <div class="note"><strong>Which judge answered is recorded.</strong> Scores from different models are not interchangeable, so <code>run_benchmark.py</code> stamps the provider and model on every run and refuses to present a mixed report as one number — it warns instead.</div>
         </div>

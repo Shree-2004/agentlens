@@ -20,16 +20,18 @@ from collections import Counter
 
 from dotenv import load_dotenv
 
-from judge import JudgeUnavailableError, run_judge
+from console import enable_utf8_output
+from judge import PROVIDER_NAMES, JudgeUnavailableError, run_judge
 from schema import Trace
 
 
 def main() -> None:
+    enable_utf8_output()
     load_dotenv()
     parser = argparse.ArgumentParser(description="Check judge consistency across repeated runs")
     parser.add_argument("trace_path")
     parser.add_argument("n_runs", type=int)
-    parser.add_argument("--provider", choices=["anthropic", "gemini"], help="which judge LLM to use")
+    parser.add_argument("--provider", choices=PROVIDER_NAMES, help="which judge LLM to use")
     parser.add_argument("--output", default=None, help="where to write the results JSON")
     args = parser.parse_args()
 

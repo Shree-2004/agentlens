@@ -24,7 +24,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from judge import JudgeUnavailableError, _verdict_to_findings, run_judge_raw
+from console import enable_utf8_output
+from judge import PROVIDER_NAMES, JudgeUnavailableError, _verdict_to_findings, run_judge_raw
 from schema import Trace
 
 TRACES_DIR = Path("sample_traces")
@@ -41,10 +42,11 @@ def score_run(findings, label: dict) -> bool:
 
 
 def main() -> None:
+    enable_utf8_output()
     load_dotenv()
     parser = argparse.ArgumentParser(description="Benchmark the judge against ground_truth.json")
     parser.add_argument("n_runs", type=int, nargs="?", default=3)
-    parser.add_argument("--provider", choices=["anthropic", "gemini"])
+    parser.add_argument("--provider", choices=PROVIDER_NAMES)
     parser.add_argument("--output", default="output/benchmark_report.json")
     parser.add_argument("--only", help="comma-separated trace filenames to run, instead of the full set")
     args = parser.parse_args()

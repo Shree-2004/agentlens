@@ -16,15 +16,17 @@ import json
 
 from dotenv import load_dotenv
 
-from judge import JudgeUnavailableError, run_judge_raw
+from console import enable_utf8_output
+from judge import PROVIDER_NAMES, JudgeUnavailableError, run_judge_raw
 from schema import Trace
 
 
 def main() -> None:
+    enable_utf8_output()
     load_dotenv()
     parser = argparse.ArgumentParser(description="Inspect the judge's raw verdict, including extracted claims")
     parser.add_argument("trace_path")
-    parser.add_argument("--provider", choices=["anthropic", "gemini"])
+    parser.add_argument("--provider", choices=PROVIDER_NAMES)
     args = parser.parse_args()
 
     trace = Trace.load(args.trace_path)

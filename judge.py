@@ -160,9 +160,15 @@ def _call_groq(
 # as the default free option.
 _PROVIDERS = {
     "anthropic": ("ANTHROPIC_API_KEY", "claude-sonnet-5", _call_anthropic),
-    "groq": ("GROQ_API_KEY", "llama-3.3-70b-versatile", _call_groq),
+    "groq": ("GROQ_API_KEY", "openai/gpt-oss-120b", _call_groq),
     "gemini": ("GOOGLE_API_KEY", "gemini-flash-latest", _call_gemini),
 }
+
+# Public: every CLI derives its --provider choices from this, so adding a
+# provider to _PROVIDERS is all it takes. The previous hardcoded lists
+# silently went stale the moment groq was registered.
+PROVIDER_NAMES = tuple(_PROVIDERS)
+
 
 _RETRYABLE_STATUS_CODES = (429, 500, 502, 503, 529)
 

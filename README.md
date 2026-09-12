@@ -54,13 +54,21 @@ Three are supported, and the judge picks whichever key is set (in the order abov
 
 | Provider | Default model | Free tier |
 |---|---|---|
-| `groq` | `llama-3.3-70b-versatile` | ~1,000 requests/day; the daily **token** budget binds first on long traces |
+| `groq` | `openai/gpt-oss-120b` | ~1,000 requests/day; the daily **token** budget binds first on long traces |
 | `anthropic` | `claude-sonnet-5` | paid, no daily cap |
 | `gemini` | `gemini-flash-latest` | **20 requests/day** per project per model |
 
 **Gemini's 20/day cap is the single fact that shaped all the recorded data in this repo.** The full benchmark is 10 traces × 3 runs = 30 calls, which doesn't fit in one day — which is why the results below were gathered in fragments across many sessions, why so many runs show as errored, and why `output/benchmark.html` had to be built to merge the pieces. Groq was added to lift that constraint; on it or Anthropic the benchmark finishes in one sitting.
 
 **Which judge answered is recorded.** Accuracy from two different models is not one measurement, so `judge.py` stamps `_provider` and `_model` on every verdict, `run_benchmark.py` rolls those into a `judges` array plus a `mixed_judges` flag, and it prints a warning rather than presenting a blended score as a single number. Pass `--provider` explicitly for benchmark runs — auto-detect picks whatever key happens to be set, so the judge can otherwise change between sessions without anyone deciding to change it.
+
+Groq's catalogue varies by account — `llama-3.3-70b-versatile` is listed in the docs but was not available on a fresh free account, so the default is `openai/gpt-oss-120b`. If you get `model_not_found`, list what your key can actually reach:
+
+```python
+from groq import Groq; print(sorted(m.id for m in Groq().models.list().data))
+```
+
+then pass `--model <id>`.
 
 The eight recorded reports predate that stamping. Their judge is documented in [output/benchmark_manifest.json](output/benchmark_manifest.json) from the project's own records rather than from the data, and the UI labels it as such.
 

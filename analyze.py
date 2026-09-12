@@ -14,7 +14,8 @@ import json
 
 from dotenv import load_dotenv
 
-from judge import JudgeUnavailableError, run_judge_with_claims
+from console import enable_utf8_output
+from judge import PROVIDER_NAMES, JudgeUnavailableError, run_judge_with_claims
 from rules import run_rules
 from schema import Diagnosis, Finding, Trace, rank_key
 
@@ -62,12 +63,13 @@ def diagnose(trace: Trace, use_judge: bool = True, provider: str | None = None) 
 
 
 def main() -> None:
+    enable_utf8_output()
     load_dotenv()
     parser = argparse.ArgumentParser(description="Diagnose an agent trace")
     parser.add_argument("trace_path", nargs="?", help="path to a trace JSON file (omit when using --langfuse-trace-id)")
     parser.add_argument("output_path")
     parser.add_argument("--no-judge", action="store_true", help="skip the LLM judge, rules only")
-    parser.add_argument("--provider", choices=["anthropic", "gemini"], help="which judge LLM to use (default: auto-detect from env keys)")
+    parser.add_argument("--provider", choices=PROVIDER_NAMES, help="which judge LLM to use (default: auto-detect from env keys)")
     parser.add_argument("--langfuse-trace-id", help="import the trace from Langfuse by id instead of reading a file")
     parser.add_argument("--save-trace", help="also write the imported trace to this path, in AgentLens trace format")
     args = parser.parse_args()
