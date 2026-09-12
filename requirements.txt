@@ -1,3 +1,6 @@
 anthropic
 google-genai
 python-dotenv
+
+# optional: only for importing traces via langfuse_adapter.py
+# langfuse

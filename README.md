@@ -63,7 +63,40 @@ The other 10 traces are the hand-labeled ground-truth set (`sample_traces/ground
 
 ## Trace format
 
-Traces are plain JSON: a task description plus an ordered list of steps (`reasoning` / `tool_call` / `tool_result` / `final_answer`). See [schema.py](schema.py). This is intentionally close to OpenTelemetry's GenAI semantic conventions, so real logs from LangChain, a custom agent loop, etc. can be adapted into it without much friction — that adapter is the natural next thing to build.
+Traces are plain JSON: a task description plus an ordered list of steps (`reasoning` / `tool_call` / `tool_result` / `final_answer`). See [schema.py](schema.py). This is intentionally close to OpenTelemetry's GenAI semantic conventions, so real logs from LangChain, a custom agent loop, etc. can be adapted into it without much friction.
+
+## Importing traces from Langfuse
+
+[langfuse_adapter.py](langfuse_adapter.py) is that adapter. [Langfuse](https://langfuse.com/) is an OpenTelemetry-backed store for exactly these logs, so any agent already instrumented with it — LangChain, LlamaIndex, a hand-rolled loop — becomes an AgentLens input without touching the agent's code.
+
+This matters more than it sounds. [capture_real_trace.py](capture_real_trace.py) monkeypatches one specific project's internals; it works once, for that repo, with its venv active. That's why there is exactly **one** real trace in `real_traces/`, and why "does the judge work on traces nobody designed for it?" is still answered with n=1. The adapter turns capturing real traces into configuration rather than a bespoke script per project.
+
+```bash
+pip install langfuse    # optional -- only needed for this path
+export LANGFUSE_PUBLIC_KEY=pk-lf-...
+export LANGFUSE_SECRET_KEY=sk-lf-...
+export LANGFUSE_HOST=https://cloud.langfuse.com   # or your self-hosted URL
+
+# diagnose a Langfuse trace directly
+python3 analyze.py --langfuse-trace-id <trace-id> output/diagnosis.json
+
+# or export it to the trace format first, to keep or hand-label
+python3 langfuse_adapter.py <trace-id> real_traces/imported.json
+```
+
+Everything above this section keeps working with no Langfuse install — the import is lazy and the file path is untouched.
+
+**The mapping**, since this is where fidelity gets lost quietly: Langfuse stores a trace as a tree; AgentLens wants the flat sequence the agent actually walked, so observations are flattened by `startTime` (the API returns them newest-first) rather than walked depth-first. A `GENERATION` becomes one `reasoning` step, a tool `SPAN`/`EVENT` becomes a `tool_call` + `tool_result` pair, `level: ERROR` sets `is_error`, and the root span is deliberately *not* treated as a tool — it supplies the task and final answer, since mapping it as one would fabricate a tool call the agent never made and hand the judge the whole trajectory back as a single "result."
+
+A wrong mapping doesn't crash — it silently gives the judge a trajectory the agent never ran, and every conclusion after that is about a trace that didn't happen. So [test_langfuse_adapter.py](test_langfuse_adapter.py) pins the decisions that fail quietly (ordering, root handling, error flags, JSON-string parsing, paging, the empty-fetch case) against fixtures shaped like real API responses:
+
+```bash
+python3 test_langfuse_adapter.py   # no network, no account, no API key
+```
+
+One mapping choice is worth naming: a non-dict tool input gets wrapped (`"U-4471"` → `{"input": "U-4471"}`) rather than dropped, because `rules.py` flags empty `tool_args` as a malformed call — dropping it would invent a rule finding for a call that was perfectly well-formed. A failed fetch raises `LangfuseUnavailableError` rather than returning an empty trace, for the same reason `judge.py` raises `JudgeUnavailableError`: "the fetch broke" must never score as "clean run, nothing found."
+
+**Status: the mapping is verified against fixtures, not yet against a live Langfuse project.** The next step is instrumenting [Multi-Agent Research Assistant](https://github.com/Shree-2004/Multi-Agent-Research-Assistant) with Langfuse, re-capturing the Nobel Prize run, and diffing the adapter's output against the hand-captured [multi_agent_research_live.json](real_traces/multi_agent_research_live.json) — a real trace with a known answer is the only way to prove the mapping is faithful before trusting it on new ones.
 
 ## Status
 
