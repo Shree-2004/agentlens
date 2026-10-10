@@ -1,0 +1,20 @@
+# Minimal OpenTelemetry Collector: receive OTLP over HTTP, write every
+# trace batch to a JSON-lines file. This is the same file format any
+# Collector-based stack (Nasiko, Tempo, etc.) can be configured to emit.
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+exporters:
+  file:
+    path: /out/traces.jsonl
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [file, debug]
