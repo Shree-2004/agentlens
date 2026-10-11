@@ -137,7 +137,7 @@ python3 test_claims_plumbing.py   # 18 checks, stubbed verdicts, no API call
 
 [langfuse_adapter.py](langfuse_adapter.py) is that adapter. [Langfuse](https://langfuse.com/) is an OpenTelemetry-backed store for exactly these logs, so any agent already instrumented with it — LangChain, LlamaIndex, a hand-rolled loop — becomes an AgentLens input without touching the agent's code.
 
-This matters more than it sounds. [capture_real_trace.py](capture_real_trace.py) monkeypatches one specific project's internals; it works once, for that repo, with its venv active. That's why there is exactly **one** real trace in `real_traces/`, and why "does the judge work on traces nobody designed for it?" is still answered with n=1. The adapter turns capturing real traces into configuration rather than a bespoke script per project.
+This matters more than it sounds. [capture_real_trace.py](capture_real_trace.py) monkeypatches one specific project's internals; it works once, for that repo, with its venv active. That's why `real_traces/` held exactly **one** real trace until the OpenTelemetry capture below, and why "does the judge work on traces nobody designed for it?" is still answered with n=1. The adapter turns capturing real traces into configuration rather than a bespoke script per project.
 
 ```bash
 pip install langfuse    # optional -- only needed for this path
@@ -165,6 +165,38 @@ python3 test_langfuse_adapter.py   # no network, no account, no API key
 One mapping choice is worth naming: a non-dict tool input gets wrapped (`"U-4471"` → `{"input": "U-4471"}`) rather than dropped, because `rules.py` flags empty `tool_args` as a malformed call — dropping it would invent a rule finding for a call that was perfectly well-formed. A failed fetch raises `LangfuseUnavailableError` rather than returning an empty trace, for the same reason `judge.py` raises `JudgeUnavailableError`: "the fetch broke" must never score as "clean run, nothing found."
 
 **Status: the mapping is verified against fixtures, not yet against a live Langfuse project.** The next step is instrumenting [Multi-Agent Research Assistant](https://github.com/Shree-2004/Multi-Agent-Research-Assistant) with Langfuse, re-capturing the Nobel Prize run, and diffing the adapter's output against the hand-captured [multi_agent_research_live.json](real_traces/multi_agent_research_live.json) — a real trace with a known answer is the only way to prove the mapping is faithful before trusting it on new ones.
+
+## Importing OpenTelemetry traces
+
+Most agent stacks don't use Langfuse. They emit [OpenTelemetry](https://opentelemetry.io/) spans to a Collector — agent control planes like Nasiko route theirs to Tempo and Loki the same way. [otel_adapter.py](otel_adapter.py) reads the Collector's file output (OTLP JSON, or the file exporter's JSON lines) directly, so any agent that follows the [GenAI semantic conventions](https://github.com/open-telemetry/semantic-conventions-genai) becomes an AgentLens input with no account and no API.
+
+```bash
+# convert, then diagnose as usual
+python3 otel_adapter.py traces.jsonl output/otel_trace.json [--trace-id <hex>]
+python3 analyze.py output/otel_trace.json output/diagnosis.json
+
+python3 test_otel_adapter.py   # 39 checks, including the real capture below
+```
+
+**The mapping** is keyed on `gen_ai.operation.name`: `chat` / `generate_content` becomes a `reasoning` step, `execute_tool` becomes a `tool_call` + `tool_result` pair (`gen_ai.tool.call.arguments` / `.result`), and the root `invoke_agent` span supplies the task and final answer instead of becoming a step. Nested `invoke_agent` spans aren't steps either — they label the model calls under them, so the judge reads `[Critic] …` rather than an anonymous generation. Spans are flattened by start time, status `ERROR` sets `is_error`, and spans with no GenAI operation (HTTP, DB) are skipped. A file holding several traces is never merged: interleaving two runs would hand the judge a trajectory that never happened, so the adapter asks for `--trace-id` instead.
+
+**What a real OTel trace doesn't carry, and the adapter says so.** In the spec, tool arguments, tool results and message contents are all *Opt-In*, and values are cut at `OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT`. That matters more here than for most consumers: the judge catches contradictions by comparing what a tool returned with what the agent said later, and on a default-configured trace the tool's return value simply isn't there. So the adapter marks unrecorded attributes with explicit placeholders (never an empty `tool_args`, which `rules.py` would read as a malformed call), salvages readable text from values cut mid-JSON and marks them `…[truncated]`, and prints what was missing:
+
+```
+Imported 16 steps to output/otel_trace.json
+  warning: 8 attribute values look truncated (OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT)
+```
+
+A diagnosis on a trace with no recorded tool results is a diagnosis on less evidence, and it shouldn't look like a clean one.
+
+**The real capture.** [capture_otel_trace.py](capture_otel_trace.py) ran Multi-Agent Research Assistant with GenAI-convention spans (tool and message contents switched on, 8,000-character value limit) and exported them through a real Collector in Docker ([otel/collector-config.yaml](otel/collector-config.yaml)). The run got through a full Researcher → Analyst → Writer → Verifier → Critic cycle; the Critic sent it back for more evidence, and the second Researcher pass hit the Gemini free-tier quota and crashed. [multi_agent_research_otel_quota_crash.jsonl](real_traces/multi_agent_research_otel_quota_crash.jsonl) is the Collector's output, unedited — a real failure, with `ERROR` status propagating from the failed model call up through the Researcher to the root. The instrumentation is manual, because the target pins library versions older than the GenAI auto-instrumentation packages.
+
+Two things the capture showed:
+
+- **The target's search tools hide their own failures.** Both catch every exception and return `[]`, so a failed search reaches any trace — OTel or not — as a successful call with an empty result.
+- **The rule layer doesn't flag a crashed run.** `analyze.py --no-judge` on this trace reports "No failure found": the rules cover tool loops, tool errors and missing arguments, and none of them looks at a model call that failed and ended the run. That's a gap in `rules.py`, not the adapter, and it's the next fix.
+
+**Status: verified against fixtures and one real crashed run.** Still to do: a successful run as a second real trace, an `--otel-file` flag on `analyze.py`, and showing the recording gaps in the viewer rather than only in the terminal.
 
 ## Status
 

@@ -7,3 +7,4 @@ output/consistency_report.json
 output/benchmark_report.json
 .venv-otel/
 otel/out/
+output/otel_trace.json
