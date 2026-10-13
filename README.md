@@ -194,7 +194,7 @@ A diagnosis on a trace with no recorded tool results is a diagnosis on less evid
 Two things the capture showed:
 
 - **The target's search tools hide their own failures.** Both catch every exception and return `[]`, so a failed search reaches any trace — OTel or not — as a successful call with an empty result.
-- **The rule layer doesn't flag a crashed run.** `analyze.py --no-judge` on this trace reports "No failure found": the rules cover tool loops, tool errors and missing arguments, and none of them looks at a model call that failed and ended the run. That's a gap in `rules.py`, not the adapter, and it's the next fix.
+- **The rule layer didn't flag a crashed run.** `analyze.py --no-judge` on this trace reported "No failure found": the rules covered tool loops, tool errors and missing arguments, and none of them looked at a model call that failed and ended the run. `find_aborted_run` in [rules.py](rules.py) now flags a run whose last step is an error and that never produced a final answer (`run_aborted`, high confidence, at the failed step). It's deliberately narrow — a trace that just stops with no error may be a partial capture, so it isn't called a crash. Across all 13 sample and real traces that finished, it adds no findings ([test_rules.py](test_rules.py)). The benchmark is unaffected by construction: `run_benchmark.py` scores the judge alone.
 
 **Status: verified against fixtures and one real crashed run.** Still to do: a successful run as a second real trace, an `--otel-file` flag on `analyze.py`, and showing the recording gaps in the viewer rather than only in the terminal.
 

@@ -3,7 +3,7 @@
 These run first: no LLM call, no cost, high precision. They catch the
 failures that don't require understanding meaning — a tool hammered with
 the same arguments, an error the agent barrelled past, a call missing the
-arguments it needed. Anything semantic (a stale fact quietly corrupting
+arguments it needed, a run that crashed before answering. Anything semantic (a stale fact quietly corrupting
 later reasoning) is out of scope here; that's judge.py's job.
 """
 
@@ -90,9 +90,39 @@ def find_missing_arguments(trace: Trace) -> list[Finding]:
     return findings
 
 
+def find_aborted_run(trace: Trace) -> list[Finding]:
+    """Flag a run that ended on an error without ever producing an answer.
+
+    The other rules look inside a run that finished. A run that crashed --
+    a model call that hit a quota, a tool that raised -- has no wrong answer
+    to find, so without this it reads as "no failure found."
+
+    Deliberately narrow: the last step must itself be an error. A trace that
+    merely stops with no final answer may just be a partial capture, and
+    calling that a crash would be a guess.
+    """
+    if not trace.steps or any(s.type == "final_answer" for s in trace.steps):
+        return []
+    last = trace.steps[-1]
+    if not last.is_error:
+        return []
+    detail = last.content if last.type == "reasoning" else str(last.tool_result)
+    return [
+        Finding(
+            source="rule",
+            step_index=last.index,
+            category="run_aborted",
+            confidence="high",
+            summary=f"Run ended on an error at step {last.index} without producing a final answer",
+            detail=detail,
+        )
+    ]
+
+
 def run_rules(trace: Trace) -> list[Finding]:
     findings: list[Finding] = []
     findings.extend(find_tool_loops(trace))
     findings.extend(find_silent_errors(trace))
     findings.extend(find_missing_arguments(trace))
+    findings.extend(find_aborted_run(trace))
     return sorted(findings, key=lambda f: f.step_index)
