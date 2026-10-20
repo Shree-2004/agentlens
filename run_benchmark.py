@@ -18,6 +18,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from collections import Counter
 from pathlib import Path
@@ -25,11 +26,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from console import enable_utf8_output
-from judge import PROVIDER_NAMES, JudgeUnavailableError, _verdict_to_findings, run_judge_raw
+from judge import JUDGE_SYSTEM_PROMPT, PROVIDER_NAMES, JudgeUnavailableError, _verdict_to_findings, run_judge_raw
 from schema import Trace
 
-TRACES_DIR = Path("sample_traces")
-GROUND_TRUTH_PATH = TRACES_DIR / "ground_truth.json"
+GROUND_TRUTH_PATH = Path("sample_traces") / "ground_truth.json"
 
 
 def score_run(findings, label: dict) -> bool:
@@ -49,9 +49,13 @@ def main() -> None:
     parser.add_argument("--provider", choices=PROVIDER_NAMES)
     parser.add_argument("--output", default="output/benchmark_report.json")
     parser.add_argument("--only", help="comma-separated trace filenames to run, instead of the full set")
+    parser.add_argument("--labels", default=str(GROUND_TRUTH_PATH),
+                        help="labels file; traces are read from its folder (e.g. sample_traces/adversarial/ground_truth.json)")
     args = parser.parse_args()
 
-    ground_truth = json.loads(GROUND_TRUTH_PATH.read_text(encoding="utf-8"))["labels"]
+    labels_path = Path(args.labels)
+    traces_dir = labels_path.parent
+    ground_truth = json.loads(labels_path.read_text(encoding="utf-8"))["labels"]
     if args.only:
         wanted = set(args.only.split(","))
         ground_truth = {k: v for k, v in ground_truth.items() if k in wanted}
@@ -64,7 +68,7 @@ def main() -> None:
     false_negatives = 0
 
     for filename, label in ground_truth.items():
-        trace = Trace.load(str(TRACES_DIR / filename))
+        trace = Trace.load(str(traces_dir / filename))
         run_results = []
 
         for i in range(args.n_runs):
@@ -151,6 +155,10 @@ def main() -> None:
     report = {
         "n_runs_per_trace": args.n_runs,
         "n_traces": len(ground_truth),
+        "labels": labels_path.as_posix(),
+        # Which prompt produced these numbers. Pre- and post-change reports
+        # are different measurements; the hash keeps them from being pooled.
+        "prompt_sha256": hashlib.sha256(JUDGE_SYSTEM_PROMPT.encode("utf-8")).hexdigest()[:12],
         "total_completed_runs": total_completed,
         "total_errored_runs": total_errored,
         "overall_accuracy": (total_correct / total_completed) if total_completed else None,
