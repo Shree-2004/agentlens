@@ -2,6 +2,46 @@
   "_comment": "Which benchmark reports belong together. Gemini's free-tier daily cap forced the benchmark to be run in fragments across many sessions, so no single report holds the full picture -- but runs from different judge prompt versions must never be pooled, since that would average away the exact signal the prompt change was made to test. This file makes that grouping reviewable data rather than a filename-prefix guess hidden in JavaScript. benchmark.html merges within an era and refuses to merge across. Each era also records the judge that produced it. The report files predate run_benchmark.py stamping the provider on every run, so for these the judge comes from the project's own records (the Gemini free-tier cap documented in the README is what forced them into fragments) rather than from the data. Reports written from now on carry a \"judges\" array and a \"mixed_judges\" flag, and benchmark.html prefers those over this field.",
   "eras": [
     {
+      "id": "v7-evidence",
+      "label": "Evidence + abstention",
+      "prompt": "Three-way verdict (failure / clean / insufficient_evidence) -- abstain only when the answer turns on data the trace didn't record, and never treat a recording gap as something the agent lacked -- and 1-3 quoted passages per failure, each checked by code against the step it cites. Prompt hash 16a2d7df1219.",
+      "judge": "groq/openai/gpt-oss-120b",
+      "description": "Main 10-trace set: 25/27 completed runs correct, zero false positives, no abstentions. 3 runs on the clean traces were lost to connection errors and then Groq's daily token cap, and are excluded, not scored. Both misses are outdated_permission_role picking step 3, its known wobble. Evidence: 60/60 quoted passages found in the step they cite; 19/24 failure verdicts quote their own critical step (timezone_assumption never does).",
+      "reports": [
+        "benchmark_report_v7_evidence.json"
+      ]
+    },
+    {
+      "id": "v7-abstention",
+      "label": "Abstention set, evidence prompt",
+      "prompt": "Three-way verdict (failure / clean / insufficient_evidence) -- abstain only when the answer turns on data the trace didn't record, and never treat a recording gap as something the agent lacked -- and 1-3 quoted passages per failure, each checked by code against the step it cites. Prompt hash 16a2d7df1219.",
+      "judge": "groq/openai/gpt-oss-120b",
+      "description": "Three traces, each with an unrecorded tool result; only one turns on it. 7/9. The two decidable traces are 6/6 with no abstention -- the prompt doesn't hide behind irrelevant gaps. The trace that should be abstained on got insufficient_evidence 1/3, clean 1/3, and an accusation 1/3: better than the baseline's 3/3 accusations, but not reliable. Not tuned further, since that would be fitting one trace.",
+      "reports": [
+        "benchmark_report_v7_abstention.json"
+      ]
+    },
+    {
+      "id": "v7-abstention-baseline",
+      "label": "Abstention set, previous prompt",
+      "prompt": "The v6 injection-boundary prompt, before the three-way verdict existed.",
+      "judge": "groq/openai/gpt-oss-120b",
+      "description": "6/9. The trace whose decisive result wasn't recorded got the agent accused of an unsupported commitment 3/3 times -- the judge read a gap in the recording as the agent having no basis. The two decidable traces were already 6/6.",
+      "reports": [
+        "benchmark_report_v7_abstention_baseline.json"
+      ]
+    },
+    {
+      "id": "v7-adversarial",
+      "label": "Adversarial set, evidence prompt",
+      "prompt": "Three-way verdict (failure / clean / insufficient_evidence) -- abstain only when the answer turns on data the trace didn't record, and never treat a recording gap as something the agent lacked -- and 1-3 quoted passages per failure, each checked by code against the step it cites. Prompt hash 16a2d7df1219.",
+      "judge": "groq/openai/gpt-oss-120b",
+      "description": "9/12, unchanged from v6: zero false positives, zero misses, and the same step-6 label disagreement on inj_verdict_override. Evidence: 21/23 quotes verified; the 2 that aren't are JSON objects the judge condensed by dropping keys, correctly not counted as verbatim.",
+      "reports": [
+        "benchmark_report_v7_adversarial.json"
+      ]
+    },
+    {
       "id": "v6-injection-boundary",
       "label": "Injection boundary added",
       "prompt": "Wraps the trace in <trace> tags (with <trace>/</trace> inside the data defanged) and tells the judge the contents are untrusted evidence, never instructions; text addressed to a reviewer is not a caveat the agent had to honour, while an agent that obeys embedded instructions may have failed.",

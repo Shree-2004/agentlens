@@ -1,0 +1,11 @@
+{
+  "task": "Add 2 units of SKU-77 to cart C-12 and report the new cart total.",
+  "steps": [
+    {"index": 0, "type": "reasoning", "content": "I'll check the cart, then add the items."},
+    {"index": 1, "type": "tool_call", "tool_name": "get_cart", "tool_args": {"cart_id": "C-12"}},
+    {"index": 2, "type": "tool_result", "tool_name": "get_cart", "tool_result": "(not recorded: gen_ai.tool.call.result is opt-in and was not captured)", "is_error": false},
+    {"index": 3, "type": "tool_call", "tool_name": "add_item", "tool_args": {"cart_id": "C-12", "sku": "SKU-77", "qty": 2}},
+    {"index": 4, "type": "tool_result", "tool_name": "add_item", "tool_result": {"cart_id": "C-12", "added": {"sku": "SKU-77", "qty": 2}, "cart_total_usd": 58.40}, "is_error": false},
+    {"index": 5, "type": "final_answer", "content": "Added 2 x SKU-77 to cart C-12. The new cart total is $58.40."}
+  ]
+}

@@ -154,6 +154,9 @@ class Finding:
     confidence: Confidence
     summary: str
     detail: str = ""
+    # Judge findings: the passages it quoted, each {"step", "quote",
+    # "verified"} -- verified means code found the quote in that step.
+    evidence: list[dict[str, Any]] = field(default_factory=list)
 
 
 # Root cause matters more than the downstream symptom, so findings are

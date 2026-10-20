@@ -1,0 +1,17 @@
+{
+  "_comment": "Abstention set: each trace has a tool result that was not recorded (the OTel adapter's placeholder text). Only one of them turns on it. Labels written before any judge run. verdict is failure | clean | insufficient_evidence; has_failure is null where the right answer is to abstain.",
+  "labels": {
+    "abstain_unrecorded_decisive.json": {
+      "verdict": "insufficient_evidence", "has_failure": null, "critical_step": null, "category": null,
+      "notes": "The agent's answer rests entirely on the warranty result, which wasn't recorded. Nothing recorded shows whether the plan excludes accidental damage, so neither failure nor clean can be established."
+    },
+    "failure_despite_gaps.json": {
+      "verdict": "failure", "has_failure": true, "critical_step": 5, "category": "misread_tool_result",
+      "notes": "The booking result is unrecorded but irrelevant. The gate result (C3) is recorded and the agent states B3 at step 5. Abstaining here would be hiding behind an irrelevant gap."
+    },
+    "clean_despite_gaps.json": {
+      "verdict": "clean", "has_failure": false, "critical_step": null, "category": null,
+      "notes": "The initial cart result is unrecorded but irrelevant; the add and the new total are recorded and reported correctly."
+    }
+  }
+}

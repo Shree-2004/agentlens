@@ -32,11 +32,18 @@ from schema import Trace
 GROUND_TRUTH_PATH = Path("sample_traces") / "ground_truth.json"
 
 
-def score_run(findings, label: dict) -> bool:
-    predicted_has_failure = bool(findings)
-    if predicted_has_failure != label["has_failure"]:
+def expected_verdict(label: dict) -> str:
+    """Labels written before the three-way verdict only carry has_failure."""
+    return label.get("verdict") or ("failure" if label["has_failure"] else "clean")
+
+
+def score_run(verdict: str, findings, label: dict) -> bool:
+    """Right verdict, and for a failure, the right step. Abstaining is only
+    correct where the label says the trace can't be decided -- elsewhere it
+    is a miss, but counted separately from a false positive or negative."""
+    if verdict != expected_verdict(label):
         return False
-    if not label["has_failure"]:
+    if verdict != "failure":
         return True
     return findings[0].step_index == label["critical_step"]
 
@@ -66,6 +73,12 @@ def main() -> None:
     total_errored = 0
     false_positives = 0
     false_negatives = 0
+    abstentions = 0
+    wrong_abstentions = 0
+    quotes_total = 0
+    quotes_verified = 0
+    failure_calls = 0
+    failure_calls_quoting_critical = 0
 
     for filename, label in ground_truth.items():
         trace = Trace.load(str(traces_dir / filename))
@@ -82,6 +95,7 @@ def main() -> None:
             except JudgeUnavailableError as e:
                 run_results.append({
                     "run": i + 1,
+                    "predicted_verdict": None,
                     "predicted_step": None,
                     "predicted_category": None,
                     "predicted_summary": None,
@@ -94,21 +108,40 @@ def main() -> None:
                 print(f"{filename} run {i + 1}: ERROR ({e})")
                 continue
 
-            correct = score_run(findings, label)
+            predicted_verdict = verdict["verdict"]  # filled in by _verdict_to_findings
+            expected = expected_verdict(label)
+            correct = score_run(predicted_verdict, findings, label)
             predicted_step = findings[0].step_index if findings else None
             predicted_category = findings[0].category if findings else None
-            predicted_summary = findings[0].summary if findings else None
+            predicted_summary = findings[0].summary if findings else verdict.get("summary")
 
-            if not findings and label["has_failure"]:
+            if expected == "failure" and predicted_verdict == "clean":
                 false_negatives += 1
-            if findings and not label["has_failure"]:
+            if expected != "failure" and predicted_verdict == "failure":
                 false_positives += 1
+            if predicted_verdict == "insufficient_evidence":
+                abstentions += 1
+                wrong_abstentions += expected != "insufficient_evidence"
+
+            # Does the evidence the judge quoted actually exist where it says?
+            evidence = findings[0].evidence if findings else []
+            verified = sum(1 for e in evidence if e["verified"])
+            quotes_critical = any(e["verified"] and e["step"] == predicted_step for e in evidence)
+            quotes_total += len(evidence)
+            quotes_verified += verified
+            if findings:
+                failure_calls += 1
+                failure_calls_quoting_critical += quotes_critical
 
             run_results.append({
                 "run": i + 1,
+                "predicted_verdict": predicted_verdict,
                 "predicted_step": predicted_step,
                 "predicted_category": predicted_category,
                 "predicted_summary": predicted_summary,
+                "missing_evidence": verdict.get("missing_evidence"),
+                "evidence": evidence,
+                "evidence_verified": verified,
                 "correct": correct,
                 "error": None,
                 # Which judge actually answered. Auto-detect picks whichever
@@ -120,8 +153,11 @@ def main() -> None:
             })
             total_completed += 1
             total_correct += int(correct)
-            print(f"{filename} run {i + 1}: predicted={predicted_step} expected={label['critical_step']} "
-                  f"{'OK' if correct else 'MISS'}")
+            shown = predicted_step if predicted_verdict == "failure" else predicted_verdict
+            wanted = label["critical_step"] if expected == "failure" else expected
+            quotes = f" quotes {verified}/{len(evidence)}" if evidence else ""
+            print(f"{filename} run {i + 1}: predicted={shown} expected={wanted} "
+                  f"{'OK' if correct else 'MISS'}{quotes}")
 
         completed = [r for r in run_results if r["error"] is None]
         errored = len(run_results) - len(completed)
@@ -130,6 +166,7 @@ def main() -> None:
             "trace": filename,
             "expected_step": label["critical_step"],
             "expected_has_failure": label["has_failure"],
+            "expected_verdict": expected_verdict(label),
             "notes": label["notes"],
             "runs": run_results,
             "errored_runs": errored,
@@ -164,6 +201,16 @@ def main() -> None:
         "overall_accuracy": (total_correct / total_completed) if total_completed else None,
         "false_positive_count": false_positives,
         "false_negative_count": false_negatives,
+        "abstention_count": abstentions,
+        "wrong_abstention_count": wrong_abstentions,
+        # Evidence support: share of quoted passages that code found in the
+        # step they cite, and share of failure verdicts that quote their own
+        # critical step verifiably.
+        "evidence_quotes": quotes_total,
+        "evidence_quotes_verified": quotes_verified,
+        "evidence_support_rate": (quotes_verified / quotes_total) if quotes_total else None,
+        "failure_verdicts": failure_calls,
+        "failure_verdicts_quoting_critical_step": failure_calls_quoting_critical,
         "judges": judges,
         "mixed_judges": len(judges) > 1,
         "per_trace": per_trace,
@@ -186,6 +233,11 @@ def main() -> None:
         print("No completed runs -- nothing to score.")
     print(f"False positives (clean trace flagged as failed): {false_positives}")
     print(f"False negatives (real failure missed entirely, judge actually ran): {false_negatives}")
+    print(f"Abstained (insufficient evidence): {abstentions}, of which on decidable traces: {wrong_abstentions}")
+    if quotes_total:
+        print(f"Evidence: {quotes_verified}/{quotes_total} quotes found in the step they cite "
+              f"({quotes_verified / quotes_total:.0%}); {failure_calls_quoting_critical}/{failure_calls} "
+              f"failure verdicts quote their critical step")
     print(f"Wrote report to {args.output}")
 
 

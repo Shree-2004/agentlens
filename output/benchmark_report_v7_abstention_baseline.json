@@ -1,0 +1,140 @@
+{
+  "n_runs_per_trace": 3,
+  "n_traces": 3,
+  "labels": "sample_traces/abstention/ground_truth.json",
+  "prompt_sha256": "231fb4da1932",
+  "total_completed_runs": 9,
+  "total_errored_runs": 0,
+  "overall_accuracy": 0.6666666666666666,
+  "false_positive_count": 3,
+  "false_negative_count": 0,
+  "judges": [
+    "groq/openai/gpt-oss-120b"
+  ],
+  "mixed_judges": false,
+  "per_trace": [
+    {
+      "trace": "abstain_unrecorded_decisive.json",
+      "expected_step": null,
+      "expected_has_failure": null,
+      "notes": "The agent's answer rests entirely on the warranty result, which wasn't recorded. Nothing recorded shows whether the plan excludes accidental damage, so neither failure nor clean can be established.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 3,
+          "predicted_category": "unsupported_commitment",
+          "predicted_summary": "The agent asserted that the warranty excludes accidental damage and therefore doesn't cover the cracked-screen repair without any evidence from the missing tool result, introducing an unsupported claim.",
+          "correct": false,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": 3,
+          "predicted_category": "unsupported_commitment",
+          "predicted_summary": "The agent asserted that the warranty excludes accidental damage without any evidence from the missing tool result, leading to an unsupported claim that the repair isn\u2019t covered.",
+          "correct": false,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": 3,
+          "predicted_category": "unsupported_commitment",
+          "predicted_summary": "The agent asserted that the warranty plan excludes accidental damage without any evidence from the missing warranty data, leading to an unsupported conclusion that the screen repair isn\u2019t covered.",
+          "correct": false,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 0.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "failure_despite_gaps.json",
+      "expected_step": 5,
+      "expected_has_failure": true,
+      "notes": "The booking result is unrecorded but irrelevant. The gate result (C3) is recorded and the agent states B3 at step 5. Abstaining here would be hiding behind an irrelevant gap.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": 5,
+          "predicted_category": "misread_tool_result",
+          "predicted_summary": "The agent misread the gate information, asserting gate B3 despite the tool result showing gate C3, leading to an incorrect message.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": 5,
+          "predicted_category": "misread_tool_result",
+          "predicted_summary": "The agent incorrectly asserted that UA-88 departs from gate B3 despite the tool returning gate C3, introducing a false premise at step\u202f5.",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": 5,
+          "predicted_category": "misread_tool_result",
+          "predicted_summary": "The agent misread the gate information, asserting gate B3 (step\u202f5) despite the tool result showing gate C3 (step\u202f4).",
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "clean_despite_gaps.json",
+      "expected_step": null,
+      "expected_has_failure": false,
+      "notes": "The initial cart result is unrecorded but irrelevant; the add and the new total are recorded and reported correctly.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": null,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    }
+  ]
+}

@@ -54,6 +54,7 @@ FAILURE_VERDICT = {
     "confidence": "high",
     "summary": "Answered from a stale plan cache.",
     "contradictions": ["step 2 says free; billing says pro"],
+    "evidence": [{"step": 2, "quote": '"tier": "free", "source": "plan_cache"'}],
 }
 
 CLEAN_VERDICT = {

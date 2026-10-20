@@ -44,17 +44,20 @@ def diagnose(trace: Trace, use_judge: bool = True, provider: str | None = None) 
     trace.validate()
     findings = run_rules(trace)
     claims: list[dict] = []
-    judge_status: dict = {"status": "off", "provider": None, "model": None, "error": None}
+    judge_status: dict = {"status": "off", "provider": None, "model": None, "error": None,
+                          "verdict": None, "missing_evidence": None}
     if use_judge:
         try:
             result = run_judge_checked(trace, provider=provider)
             findings.extend(result["findings"])
             claims = result["claims"]
             judge_status = {"status": result["status"], "provider": result["provider"],
-                            "model": result["model"], "error": None}
+                            "model": result["model"], "error": None, "verdict": result["verdict"],
+                            "missing_evidence": result["missing_evidence"]}
         except JudgeUnavailableError as e:
             print(f"judge unavailable, continuing with rules-only findings: {e}")
-            judge_status = {"status": "failed", "provider": provider, "model": None, "error": str(e)}
+            judge_status = {"status": "failed", "provider": provider, "model": None, "error": str(e),
+                            "verdict": None, "missing_evidence": None}
     findings.sort(key=lambda f: f.step_index)
 
     critical = merge_findings(findings)
@@ -118,6 +121,17 @@ def main() -> None:
         cf = diagnosis.critical_finding
         print(f"Critical step: {cf.step_index} ({cf.category}, {cf.confidence} confidence, via {cf.source})")
         print(cf.summary)
+        for e in cf.evidence:
+            mark = {True: "verified", False: "NOT FOUND in that step", None: "unchecked"}[e["verified"]]
+            print(f"  evidence, step {e['step']} ({mark}): {e['quote']}")
+    if diagnosis.judge.get("verdict") == "insufficient_evidence":
+        # Not "no failure": the judge is saying the recording can't settle it.
+        print("Judge: insufficient evidence -- the trace doesn't record what decides this run, "
+              "so it can't be called failed or clean.")
+        if diagnosis.judge.get("missing_evidence"):
+            print(f"  missing: {diagnosis.judge['missing_evidence']}")
+    elif diagnosis.critical_finding:
+        pass
     elif diagnosis.judge["status"] == "ran":
         print("No failure found.")
     else:

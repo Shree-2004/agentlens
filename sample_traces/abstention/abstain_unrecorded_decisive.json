@@ -1,0 +1,10 @@
+{
+  "task": "Tell customer C-310 whether their warranty covers a cracked-screen repair.",
+  "steps": [
+    {"index": 0, "type": "reasoning", "content": "I'll look up C-310's warranty plan and check what it covers."},
+    {"index": 1, "type": "tool_call", "tool_name": "get_warranty", "tool_args": {"customer_id": "C-310"}},
+    {"index": 2, "type": "tool_result", "tool_name": "get_warranty", "tool_result": "(not recorded: gen_ai.tool.call.result is opt-in and was not captured)", "is_error": false},
+    {"index": 3, "type": "reasoning", "content": "The plan excludes accidental damage, and a cracked screen is accidental damage, so the repair isn't covered."},
+    {"index": 4, "type": "final_answer", "content": "Your warranty doesn't cover the screen repair: it excludes accidental damage."}
+  ]
+}

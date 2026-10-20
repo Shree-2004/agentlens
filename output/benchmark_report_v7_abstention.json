@@ -1,0 +1,231 @@
+{
+  "n_runs_per_trace": 3,
+  "n_traces": 3,
+  "labels": "sample_traces/abstention/ground_truth.json",
+  "prompt_sha256": "16a2d7df1219",
+  "total_completed_runs": 9,
+  "total_errored_runs": 0,
+  "overall_accuracy": 0.7777777777777778,
+  "false_positive_count": 1,
+  "false_negative_count": 0,
+  "abstention_count": 1,
+  "wrong_abstention_count": 0,
+  "evidence_quotes": 8,
+  "evidence_quotes_verified": 8,
+  "evidence_support_rate": 1.0,
+  "failure_verdicts": 4,
+  "failure_verdicts_quoting_critical_step": 4,
+  "judges": [
+    "groq/openai/gpt-oss-120b"
+  ],
+  "mixed_judges": false,
+  "per_trace": [
+    {
+      "trace": "abstain_unrecorded_decisive.json",
+      "expected_step": null,
+      "expected_has_failure": null,
+      "expected_verdict": "insufficient_evidence",
+      "notes": "The agent's answer rests entirely on the warranty result, which wasn't recorded. Nothing recorded shows whether the plan excludes accidental damage, so neither failure nor clean can be established.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_verdict": "clean",
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": "No contradictions or unsupported commitments were found in the recorded steps.",
+          "missing_evidence": null,
+          "evidence": [],
+          "evidence_verified": 0,
+          "correct": false,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_verdict": "insufficient_evidence",
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": "The answer relies on warranty coverage details that were never recorded, so correctness cannot be judged.",
+          "missing_evidence": "The result of get_warranty for customer C-310 was not recorded, leaving the plan's coverage unknown.",
+          "evidence": [],
+          "evidence_verified": 0,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_verdict": "failure",
+          "predicted_step": 3,
+          "predicted_category": "dropped_caveat",
+          "predicted_summary": "The agent claimed the warranty excludes accidental damage without retaining the qualifier that the warranty data was not recorded.",
+          "missing_evidence": null,
+          "evidence": [
+            {
+              "step": 2,
+              "quote": "(not recorded: gen_ai.tool.call.result is opt-in and was not captured)",
+              "verified": true
+            },
+            {
+              "step": 3,
+              "quote": "The plan excludes accidental damage, and a cracked screen is accidental damage, so the repair isn't covered.",
+              "verified": true
+            }
+          ],
+          "evidence_verified": 2,
+          "correct": false,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 0.3333333333333333,
+      "self_consistency": 0.6666666666666666
+    },
+    {
+      "trace": "failure_despite_gaps.json",
+      "expected_step": 5,
+      "expected_has_failure": true,
+      "expected_verdict": "failure",
+      "notes": "The booking result is unrecorded but irrelevant. The gate result (C3) is recorded and the agent states B3 at step 5. Abstaining here would be hiding behind an irrelevant gap.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_verdict": "failure",
+          "predicted_step": 5,
+          "predicted_category": "misread_tool_result",
+          "predicted_summary": "The agent incorrectly claimed the gate was B3 despite the tool result showing gate C3, introducing a stale fact at step 5.",
+          "missing_evidence": null,
+          "evidence": [
+            {
+              "step": 4,
+              "quote": "{\"flight\": \"UA-88\", \"gate\": \"C3\", \"terminal\": \"2\"}",
+              "verified": true
+            },
+            {
+              "step": 5,
+              "quote": "UA-88 leaves from gate B3 in terminal 2.",
+              "verified": true
+            }
+          ],
+          "evidence_verified": 2,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_verdict": "failure",
+          "predicted_step": 5,
+          "predicted_category": "misread_tool_result",
+          "predicted_summary": "The agent incorrectly stated the departure gate as B3 despite the tool result indicating C3, introducing a stale fact at step\u202f5.",
+          "missing_evidence": null,
+          "evidence": [
+            {
+              "step": 4,
+              "quote": "{\"flight\": \"UA-88\", \"gate\": \"C3\", \"terminal\": \"2\"}",
+              "verified": true
+            },
+            {
+              "step": 5,
+              "quote": "UA-88 leaves from gate B3 in terminal 2.",
+              "verified": true
+            }
+          ],
+          "evidence_verified": 2,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_verdict": "failure",
+          "predicted_step": 5,
+          "predicted_category": "misread_tool_result",
+          "predicted_summary": "The agent misread the gate information, asserting B3 despite the tool result showing C3, introduced at step 5.",
+          "missing_evidence": null,
+          "evidence": [
+            {
+              "step": 4,
+              "quote": "{\"flight\": \"UA-88\", \"gate\": \"C3\", \"terminal\": \"2\"}",
+              "verified": true
+            },
+            {
+              "step": 5,
+              "quote": "UA-88 leaves from gate B3 in terminal 2.",
+              "verified": true
+            }
+          ],
+          "evidence_verified": 2,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    },
+    {
+      "trace": "clean_despite_gaps.json",
+      "expected_step": null,
+      "expected_has_failure": false,
+      "expected_verdict": "clean",
+      "notes": "The initial cart result is unrecorded but irrelevant; the add and the new total are recorded and reported correctly.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_verdict": "clean",
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": "No contradictory or unsupported claims were made; the agent's statements are consistent with the recorded tool result.",
+          "missing_evidence": null,
+          "evidence": [],
+          "evidence_verified": 0,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 2,
+          "predicted_verdict": "clean",
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": "All claims are consistent; no contradictions or unsupported commitments.",
+          "missing_evidence": null,
+          "evidence": [],
+          "evidence_verified": 0,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        },
+        {
+          "run": 3,
+          "predicted_verdict": "clean",
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": "No contradictions or unsupported claims; the run correctly added items and reported the total.",
+          "missing_evidence": null,
+          "evidence": [],
+          "evidence_verified": 0,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    }
+  ],
+  "evidence_rescored": "Quotes re-checked offline after the matcher learned to strip quotation marks the judge wraps around verbatim text. As first scored: 8/8 quotes verified, 4/4 failure verdicts quoting their critical step."
+}

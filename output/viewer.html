@@ -239,6 +239,20 @@
   .step.critical .claim, .step.tainted .claim { color: var(--text); }
   .orphan-claims { margin-top: 1rem; }
 
+  /* Passages the judge quoted as evidence, each checked against the step. */
+  .quotes { margin-top: 0.5rem; border-top: 1px dashed var(--border); padding-top: 0.45rem; }
+  .quotes .claims-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em;
+                          color: var(--text-dim); margin-bottom: 0.3rem; }
+  .quote { font-family: var(--mono); font-size: 0.78rem; line-height: 1.45; margin-bottom: 0.2rem;
+           overflow-wrap: anywhere; }
+  .quote .flag { font-family: inherit; font-size: 0.66rem; text-transform: uppercase;
+                 letter-spacing: 0.04em; margin-left: 0.45rem; }
+  .quote.verified .flag { color: var(--ok); }
+  .quote.unverified .flag { color: var(--critical); }
+  mark.evidence { background: var(--tainted-bg); color: inherit; border-radius: 2px;
+                  box-shadow: 0 0 0 1px var(--tainted); }
+  .summary-card.abstained { border-color: var(--tainted); }
+
   .break-marker {
     position: relative;
     margin: -0.15rem 0 0.7rem;
@@ -349,6 +363,7 @@
 
     const summary = document.getElementById("summary");
     const cf = diag.critical_finding;
+    const abstained = !!(diag.judge && diag.judge.verdict === "insufficient_evidence");
     const card = document.createElement("div");
     card.className = "summary-card " + (cf ? "has-failure" : "no-failure");
 
@@ -362,7 +377,24 @@
       badges.style.marginTop = "0.5rem";
       badges.appendChild(badge(cf.confidence + " confidence", cf.confidence));
       badges.appendChild(badge(cf.source, cf.source));
+      const quoted = cf.evidence || [];
+      if (quoted.length) {
+        const ok = quoted.filter((e) => e.verified).length;
+        badges.appendChild(badge(`${ok}/${quoted.length} quotes verified`, ok ? "high" : "low"));
+      }
       card.appendChild(badges);
+      if (abstained) {
+        card.appendChild(el("div", "meta",
+          "The judge itself returned insufficient evidence; this finding comes from the rules."));
+      }
+    } else if (abstained) {
+      card.className = "summary-card abstained";
+      card.append(
+        el("div", "label", "Result"),
+        el("div", "headline", "Insufficient evidence"),
+        el("div", "meta", "The trace doesn't record what decides this run, so the judge called it neither failed nor clean."),
+      );
+      if (diag.judge.missing_evidence) card.appendChild(el("div", "meta", "Missing: " + diag.judge.missing_evidence));
     } else if (diag.judge && diag.judge.status && diag.judge.status !== "ran") {
       // Rules alone can't call a trace clean: they never look at meaning.
       // Older diagnosis files have no judge field and keep the old wording.
@@ -449,6 +481,52 @@
       return box;
     }
 
+    // Quoted evidence, grouped by the step it cites. The "verified" flag was
+    // set by code in judge.py, not by the judge.
+    const quotesByStep = new Map();
+    (diag.findings || []).forEach((f) => (f.evidence || []).forEach((e) => {
+      if (!quotesByStep.has(e.step)) quotesByStep.set(e.step, []);
+      quotesByStep.get(e.step).push(e);
+    }));
+
+    function quotesBlock(list) {
+      const box = el("div", "quotes");
+      box.appendChild(el("div", "claims-label", list.length === 1 ? "1 quote cited as evidence" : `${list.length} quotes cited as evidence`));
+      list.forEach((e) => {
+        const row = el("div", "quote " + (e.verified ? "verified" : "unverified"), "“" + e.quote + "”");
+        row.appendChild(el("span", "flag", e.verified ? "found in this step"
+          : e.verified === false ? "not found in this step" : "unchecked"));
+        box.appendChild(row);
+      });
+      return box;
+    }
+
+    // Wrap each verified quote's exact occurrences in <mark>, built from text
+    // nodes so no trace text is ever parsed as markup. The check in judge.py
+    // also forgives typographic quotes and whitespace; a quote that only
+    // matched that way is listed below the step but not highlighted.
+    function highlight(textEl, text, list) {
+      const lower = text.toLowerCase();
+      const ranges = [];
+      list.filter((e) => e.verified).forEach((e) => {
+        let from = 0;
+        e.quote.split(/\s*(?:\.\.\.|…)\s*/).filter(Boolean).forEach((piece) => {
+          const at = lower.indexOf(piece.toLowerCase(), from);
+          if (at >= 0) { ranges.push([at, at + piece.length]); from = at + piece.length; }
+        });
+      });
+      if (!ranges.length) return;
+      ranges.sort((a, b) => a[0] - b[0]);
+      textEl.textContent = "";
+      let pos = 0;
+      ranges.forEach(([start, end]) => {
+        if (start < pos) return;  // overlapping quote: already covered
+        textEl.append(text.slice(pos, start), el("mark", "evidence", text.slice(start, end)));
+        pos = end;
+      });
+      textEl.append(text.slice(pos));
+    }
+
     const timeline = document.getElementById("timeline");
     const criticalIdx = cf ? cf.step_index : null;
 
@@ -472,6 +550,10 @@
                   el("span", "step-type", String(step.type).replace(/_/g, " ")));
       const textEl = el("div", "step-text", step.text);
       stepEl.append(head, textEl);
+      if (quotesByStep.has(step.index)) {
+        highlight(textEl, String(step.text), quotesByStep.get(step.index));
+        stepEl.appendChild(quotesBlock(quotesByStep.get(step.index)));
+      }
       if (claimsByStep.has(step.index)) stepEl.appendChild(claimsBlock(claimsByStep.get(step.index)));
       timeline.appendChild(stepEl);
       if (step.index !== criticalIdx) clampIfLong(textEl, stepEl);
@@ -484,6 +566,12 @@
     const orphans = claims.filter((c) => !stepIndices.has(c.step));
     if (orphans.length) {
       const box = claimsBlock(orphans.map((c) => `(step ${c.step}, not in trace) ${c.claim}`));
+      box.classList.add("orphan-claims");
+      timeline.appendChild(box);
+    }
+    const orphanQuotes = [...quotesByStep].filter(([s]) => !stepIndices.has(s)).flatMap(([, list]) => list);
+    if (orphanQuotes.length) {
+      const box = quotesBlock(orphanQuotes.map((e) => ({ ...e, quote: `(step ${e.step}, not in trace) ${e.quote}` })));
       box.classList.add("orphan-claims");
       timeline.appendChild(box);
     }
