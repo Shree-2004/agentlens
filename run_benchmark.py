@@ -26,7 +26,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from console import enable_utf8_output
-from judge import JUDGE_SYSTEM_PROMPT, PROVIDER_NAMES, JudgeUnavailableError, _verdict_to_findings, run_judge_raw
+from judge import JUDGE_SYSTEM_PROMPT, PROVIDER_NAMES, JudgeQuotaExhaustedError, JudgeUnavailableError, _verdict_to_findings, run_judge_raw
 from schema import Trace
 
 GROUND_TRUTH_PATH = Path("sample_traces") / "ground_truth.json"
@@ -80,7 +80,10 @@ def main() -> None:
     failure_calls = 0
     failure_calls_quoting_critical = 0
 
+    stopped_early = None  # set when a daily quota runs out: later runs can't succeed either
     for filename, label in ground_truth.items():
+        if stopped_early:
+            break
         trace = Trace.load(str(traces_dir / filename))
         run_results = []
 
@@ -106,6 +109,9 @@ def main() -> None:
                 })
                 total_errored += 1
                 print(f"{filename} run {i + 1}: ERROR ({e})")
+                if isinstance(e, JudgeQuotaExhaustedError):
+                    stopped_early = str(e)
+                    break
                 continue
 
             predicted_verdict = verdict["verdict"]  # filled in by _verdict_to_findings
@@ -213,6 +219,11 @@ def main() -> None:
         "failure_verdicts_quoting_critical_step": failure_calls_quoting_critical,
         "judges": judges,
         "mixed_judges": len(judges) > 1,
+        # Not None means the run ended on a daily quota: the report covers
+        # only what ran before it, and says so instead of padding the rest
+        # with errors.
+        "stopped_early": stopped_early,
+        "runs_not_attempted": args.n_runs * len(ground_truth) - total_completed - total_errored,
         "per_trace": per_trace,
     }
 
@@ -220,6 +231,9 @@ def main() -> None:
     Path(args.output).write_text(json.dumps(report, indent=2), encoding="utf-8")
 
     print()
+    if stopped_early:
+        print(f"STOPPED EARLY: {stopped_early}")
+        print(f"{report['runs_not_attempted']} run(s) were not attempted. Re-run them later with --only.")
     if len(judges) > 1:
         print(f"WARNING: runs came from more than one judge ({', '.join(judges)}).")
         print("The overall accuracy below averages across them and describes neither.")

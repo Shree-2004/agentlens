@@ -18,7 +18,7 @@ For the judge prompt as it stands (Groq `openai/gpt-oss-120b`, 3 runs per trace;
 
 | Set | Result |
 |---|---|
-| 10 hand-labeled traces, 8 failure shapes + 2 clean ([ground_truth.json](sample_traces/ground_truth.json)) | **25/27** completed runs on the labeled step, **0 false positives**, no abstentions. 3 runs on the clean traces were lost to Groq's daily token cap and aren't scored |
+| 10 hand-labeled traces, 8 failure shapes + 2 clean ([ground_truth.json](sample_traces/ground_truth.json)) | **28/30** runs on the labeled step, **0 false positives**, no abstentions |
 | 4 adversarial traces with text aimed at the judge inside tool output ([adversarial/](sample_traces/adversarial)) | **9/12**, 0 false positives, 0 missed failures; an injected false accusation went from 3/3 to 0/3 |
 | 3 traces with an unrecorded tool result, only one of which turns on it ([abstention/](sample_traces/abstention)) | **7/9**. The two decidable ones 6/6, never abstaining; the undecidable one: *insufficient evidence* 1/3, clean 1/3, accused 1/3 |
 | Evidence the judge quotes, checked by code against the step it cites | **89/91** quotes found (98%); 30/37 failure verdicts quote their own critical step |
@@ -69,7 +69,7 @@ python3 run_benchmark.py 3 --provider groq --labels sample_traces/adversarial/gr
 python3 run_benchmark.py 3 --provider groq --labels sample_traces/abstention/ground_truth.json
 
 # tests: no API key, no network
-python3 test_rules.py && python3 test_claims_plumbing.py && python3 test_schema.py && python3 test_evidence.py \
+python3 test_rules.py && python3 test_claims_plumbing.py && python3 test_schema.py && python3 test_evidence.py && python3 test_retry.py \
   && python3 test_langfuse_adapter.py && python3 test_otel_adapter.py
 ```
 
@@ -86,6 +86,8 @@ Three are supported, and the judge picks whichever key is set (in the order abov
 | `gemini` | `gemini-flash-latest` | **20 requests/day** per project per model |
 
 **Gemini's 20/day cap is the single fact that shaped all the recorded data in this repo.** The full benchmark is 10 traces × 3 runs = 30 calls, which doesn't fit in one day — which is why the results below were gathered in fragments across many sessions, why so many runs show as errored, and why `output/benchmark.html` had to be built to merge the pieces. Groq was added to lift that constraint; on it or Anthropic the benchmark finishes in one sitting.
+
+**Retries fix only what a retry can fix.** Every request has a 180-second timeout, and the SDKs' own retries are off, so one policy decides. Per-minute rate limits, overload, dropped connections and timeouts are retried, waiting as long as the provider asks (Retry-After, or "try again in …" in the message) when that's longer than the backoff. A wait over 90 seconds, or any other error, fails at once with the provider's reason. A **daily** quota (Groq's 200,000 tokens/day, Gemini's 20 requests/day) is never retried, and `run_benchmark.py` stops on it, reporting the remaining runs as *not attempted* rather than as errors. Each of those rules came from a real run: a 17-minute wait retried 4 times, a dropped connection ending a run on its first occurrence, a Gemini call hanging with no timeout, and a benchmark recording every run after the daily cap as an error.
 
 **Which judge answered is recorded.** Accuracy from two different models is not one measurement, so `judge.py` stamps `_provider` and `_model` on every verdict, `run_benchmark.py` rolls those into a `judges` array plus a `mixed_judges` flag, and it prints a warning rather than presenting a blended score as a single number. Pass `--provider` explicitly for benchmark runs — auto-detect picks whatever key happens to be set, so the judge can otherwise change between sessions without anyone deciding to change it.
 
@@ -364,7 +366,7 @@ Two additions, each measured against the prompt before it.
 
 **Abstention.** The baseline was measured first, on three traces with an unrecorded tool result. Where the agent's answer rested entirely on the missing result, the previous prompt accused the agent of an "unsupported commitment … without any evidence from the missing tool result" 3/3 times — reading a gap in the *recording* as the agent having no basis. The prompt now says the agent very likely saw the data, and allows *insufficient evidence* only when the answer turns on what wasn't recorded. Result: 1 abstention, 1 clean, 1 accusation out of 3 — better, not reliable. On the two traces where the gap is irrelevant it never abstained (6/6), and across every other set it abstained 0 times.
 
-The main set ([report](output/benchmark_report_v7_evidence.json)) came in at 25/27, both misses again `outdated_permission_role` → step 3; 3 runs were lost to connection errors and then Groq's 200,000-token daily cap, and are left out rather than scored.
+The main set ([report](output/benchmark_report_v7_evidence.json)) came in at 28/30, both misses again `outdated_permission_role` → step 3. Three of its runs were first lost to connection errors and then Groq's 200,000-token daily cap; rather than score them as anything, they were left out and run the next day on the same prompt (all three clean, as labeled).
 
 ### The real-trace test
 
@@ -403,7 +405,7 @@ This is one success on one real trace, not proof the fix generalizes — the obv
 
 In order:
 
-- **Finish the current measurement**: the 3 runs lost to the daily cap, and the real trace on the current prompt. Make retries honour the provider's wait hint and give each call a timeout — today a 17-minute daily-cap wait was retried 4 times, and a Gemini call hung with nothing to stop it.
+- **Re-run the real trace on the current prompt**, now that every call has a timeout.
 - **An evaluation it didn't help write.** A validation set and a locked holdout, labeled before the next prompt change — including enough undecidable traces to improve abstention without fitting one — and a run on [Who&When](https://github.com/ag2ai/Agents_Failure_Attribution) — 184 multi-agent failure logs with expert-labeled decisive steps, where the best method in the original paper located the step 14.2% of the time. Report confidence intervals, not bare percentages.
 - **A CLI and a GitHub Action**: run the rules (no key needed) or the full pipeline over a folder of saved traces, and fail a build on configured thresholds.
 - **First-divergence diff**: compare a failed run with a successful one and find the first difference that matters — runs differ harmlessly almost immediately, so the alignment has to tolerate that.

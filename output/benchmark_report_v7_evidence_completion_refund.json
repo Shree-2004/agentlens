@@ -1,0 +1,52 @@
+{
+  "n_runs_per_trace": 1,
+  "n_traces": 1,
+  "labels": "sample_traces/ground_truth.json",
+  "prompt_sha256": "16a2d7df1219",
+  "total_completed_runs": 1,
+  "total_errored_runs": 0,
+  "overall_accuracy": 1.0,
+  "false_positive_count": 0,
+  "false_negative_count": 0,
+  "abstention_count": 0,
+  "wrong_abstention_count": 0,
+  "evidence_quotes": 0,
+  "evidence_quotes_verified": 0,
+  "evidence_support_rate": null,
+  "failure_verdicts": 0,
+  "failure_verdicts_quoting_critical_step": 0,
+  "judges": [
+    "groq/openai/gpt-oss-120b"
+  ],
+  "mixed_judges": false,
+  "stopped_early": null,
+  "runs_not_attempted": 0,
+  "per_trace": [
+    {
+      "trace": "clean_success_refund.json",
+      "expected_step": null,
+      "expected_has_failure": false,
+      "expected_verdict": "clean",
+      "notes": "True negative: task completed correctly, nothing contradicted.",
+      "runs": [
+        {
+          "run": 1,
+          "predicted_verdict": "clean",
+          "predicted_step": null,
+          "predicted_category": null,
+          "predicted_summary": "No contradictions or unsupported claims; the refund was processed correctly.",
+          "missing_evidence": null,
+          "evidence": [],
+          "evidence_verified": 0,
+          "correct": true,
+          "error": null,
+          "provider": "groq",
+          "model": "openai/gpt-oss-120b"
+        }
+      ],
+      "errored_runs": 0,
+      "accuracy": 1.0,
+      "self_consistency": 1.0
+    }
+  ]
+}

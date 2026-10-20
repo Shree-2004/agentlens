@@ -213,8 +213,9 @@ def test_groq_call_shape() -> None:
             return pytypes.SimpleNamespace(choices=[pytypes.SimpleNamespace(message=msg)])
 
     class _Groq:
-        def __init__(self, api_key=None):
+        def __init__(self, api_key=None, **client_options):
             captured["api_key"] = api_key
+            captured["client_options"] = client_options
             self.chat = pytypes.SimpleNamespace(completions=_Completions())
 
     stub = pytypes.ModuleType("groq")
@@ -239,6 +240,8 @@ def test_groq_call_shape() -> None:
     check("trace goes in the user role", captured["messages"][1],
           {"role": "user", "content": "TRACE TEXT"})
     check("max_tokens leaves room for the claims array", captured["max_tokens"] >= 1024, True)
+    check("the SDK's own retries are off (our loop owns retrying)", captured["client_options"].get("max_retries"), 0)
+    check("every request has a timeout", captured["client_options"].get("timeout"), judge_mod.JUDGE_TIMEOUT_S)
 
 
 def test_no_keys_means_disabled_not_broken() -> None:

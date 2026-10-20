@@ -6,9 +6,11 @@
       "label": "Evidence + abstention",
       "prompt": "Three-way verdict (failure / clean / insufficient_evidence) -- abstain only when the answer turns on data the trace didn't record, and never treat a recording gap as something the agent lacked -- and 1-3 quoted passages per failure, each checked by code against the step it cites. Prompt hash 16a2d7df1219.",
       "judge": "groq/openai/gpt-oss-120b",
-      "description": "Main 10-trace set: 25/27 completed runs correct, zero false positives, no abstentions. 3 runs on the clean traces were lost to connection errors and then Groq's daily token cap, and are excluded, not scored. Both misses are outdated_permission_role picking step 3, its known wobble. Evidence: 60/60 quoted passages found in the step they cite; 19/24 failure verdicts quote their own critical step (timezone_assumption never does).",
+      "description": "Main 10-trace set: 28/30 correct, zero false positives, no abstentions. 3 runs on the clean traces were first lost to connection errors and Groq's daily token cap; they were completed the next day on the same prompt (all clean). Both misses are outdated_permission_role picking step 3, its known wobble. Evidence: 60/60 quoted passages found in the step they cite; 19/24 failure verdicts quote their own critical step (timezone_assumption never does).",
       "reports": [
-        "benchmark_report_v7_evidence.json"
+        "benchmark_report_v7_evidence.json",
+        "benchmark_report_v7_evidence_completion_flight.json",
+        "benchmark_report_v7_evidence_completion_refund.json"
       ]
     },
     {

@@ -283,7 +283,7 @@ def _call_anthropic(
 ) -> str:
     import anthropic
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = anthropic.Anthropic(api_key=api_key, timeout=JUDGE_TIMEOUT_S, max_retries=0)
     response = client.messages.create(
         model=model,
         max_tokens=max_tokens,
@@ -297,7 +297,9 @@ def _call_gemini(user_prompt: str, api_key: str, model: str, system_prompt: str 
     from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=api_key)
+    # No timeout by default: a call on a long trace once hung with nothing to
+    # end it. HttpOptions.timeout is in milliseconds.
+    client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=int(JUDGE_TIMEOUT_S * 1000)))
     response = client.models.generate_content(
         model=model,
         contents=user_prompt,
@@ -311,7 +313,9 @@ def _call_groq(
 ) -> str:
     from groq import Groq
 
-    client = Groq(api_key=api_key)
+    # max_retries=0: the SDK retries twice by default, and under
+    # _call_with_retry's 4 attempts that made one call up to 12 requests.
+    client = Groq(api_key=api_key, timeout=JUDGE_TIMEOUT_S, max_retries=0)
     response = client.chat.completions.create(
         model=model,
         max_tokens=max_tokens,
@@ -334,6 +338,8 @@ def _call_groq(
 # this project's benchmark had to be run in fragments across many sessions;
 # Groq's free tier is orders of magnitude larger, so it goes ahead of Gemini
 # as the default free option.
+JUDGE_TIMEOUT_S = 180.0  # per request; long real traces on a reasoning model take a while
+
 _PROVIDERS = {
     "anthropic": ("ANTHROPIC_API_KEY", "claude-sonnet-5", _call_anthropic),
     "groq": ("GROQ_API_KEY", "openai/gpt-oss-120b", _call_groq),
@@ -348,11 +354,80 @@ PROVIDER_NAMES = tuple(_PROVIDERS)
 
 _RETRYABLE_STATUS_CODES = (429, 500, 502, 503, 529)
 
+# Daily quotas don't recover within a retry loop. Groq says "tokens per day
+# (TPD)"; Gemini's free tier names its quota "...PerDayPerProjectPerModel...".
+_DAILY_QUOTA = re.compile(r"per day|PerDay|\b[TR]PD\b", re.IGNORECASE)
+# "try again in 17m10.32s", "try again in 667.5ms", "Please retry in 26.58s"
+_WAIT_HINT = re.compile(r"(?:try again|retry) in ((?:\d+h)?(?:\d+m(?!s))?(?:\d+(?:\.\d+)?s)?|\d+(?:\.\d+)?ms)\b",
+                        re.IGNORECASE)
+_RETRY_DELAY_FIELD = re.compile(r"retryDelay['\"]?\s*:\s*['\"](\d+(?:\.\d+)?)s")
 
-def _call_with_retry(call_fn, user_prompt: str, api_key: str, model: str, provider: str, max_attempts: int = 4) -> str | None:
-    """Retries transient server-side errors (rate limits, overload) with
-    backoff. Returns None (not raises) if every attempt fails, so a flaky
-    API call doesn't take down a whole benchmark run over one bad request."""
+
+class JudgeQuotaExhaustedError(JudgeUnavailableError):
+    """A daily quota is used up. Retrying can't help, and neither can the
+    next trace in a benchmark -- so callers stop instead of recording every
+    remaining run as an error."""
+
+
+def _duration_seconds(text: str) -> float | None:
+    if text.endswith("ms"):
+        return float(text[:-2]) / 1000
+    parts = re.fullmatch(r"(?:(\d+)h)?(?:(\d+)m)?(?:(\d+(?:\.\d+)?)s)?", text)
+    if not parts or not any(parts.groups()):
+        return None
+    hours, minutes, seconds = (float(g) if g else 0.0 for g in parts.groups())
+    return hours * 3600 + minutes * 60 + seconds
+
+
+def _wait_hint_seconds(error: Exception) -> float | None:
+    """How long the provider asked us to wait, if it said: the Retry-After
+    header first, then the wording of the message."""
+    response = getattr(error, "response", None)
+    headers = getattr(response, "headers", None)
+    if headers is not None:
+        try:
+            value = headers.get("retry-after")
+            if value is not None:
+                return float(value)
+        except (TypeError, ValueError, AttributeError):
+            pass
+    message = str(error)
+    match = _WAIT_HINT.search(message)
+    if match:
+        return _duration_seconds(match.group(1))
+    match = _RETRY_DELAY_FIELD.search(message)
+    return float(match.group(1)) if match else None
+
+
+def _classify(error: Exception) -> str:
+    """'daily', 'transient' or 'fatal'."""
+    message = str(error)
+    status = getattr(error, "status_code", None) or getattr(error, "code", None)
+    if status == 429 and _DAILY_QUOTA.search(message):
+        return "daily"
+    if status in _RETRYABLE_STATUS_CODES:
+        return "transient"
+    # A dropped connection or a timeout carries no status code, and used to
+    # end a run on its first occurrence.
+    if any(word in type(error).__name__ for word in ("Connection", "Timeout")):
+        return "transient"
+    return "fatal"
+
+
+def _call_with_retry(call_fn, user_prompt: str, api_key: str, model: str, provider: str,
+                     max_attempts: int = 4, max_wait_s: float = 90.0) -> str:
+    """Call the provider, retrying only what a retry can fix.
+
+    - A daily quota raises JudgeQuotaExhaustedError at once. (One run was
+      retried 4 times against "try again in 17m".)
+    - Rate limits, overload, dropped connections and timeouts are retried,
+      waiting as long as the provider asks -- or the backoff, if longer --
+      unless it asks for more than max_wait_s, which raises instead.
+    - Anything else raises JudgeUnavailableError immediately, with the reason.
+
+    Raises rather than returning None, so the reason reaches the caller's
+    error record instead of a generic "failed after retries".
+    """
     import time
 
     delay = 2.0
@@ -360,15 +435,22 @@ def _call_with_retry(call_fn, user_prompt: str, api_key: str, model: str, provid
         try:
             return call_fn(user_prompt, api_key, model)
         except Exception as e:
-            status = getattr(e, "status_code", None) or getattr(e, "code", None)
-            is_retryable = status in _RETRYABLE_STATUS_CODES
-            if not is_retryable or attempt == max_attempts:
-                print(f"judge ({provider}): giving up after {attempt} attempt(s) ({e})")
-                return None
-            print(f"judge ({provider}): attempt {attempt} failed ({e}), retrying in {delay:.0f}s")
-            time.sleep(delay)
+            kind = _classify(e)
+            hint = _wait_hint_seconds(e)
+            if kind == "daily":
+                wait = f" (provider says retry in {hint / 60:.0f} min)" if hint else ""
+                raise JudgeQuotaExhaustedError(f"{provider} daily quota exhausted{wait}: {e}") from e
+            if kind == "fatal":
+                raise JudgeUnavailableError(f"{provider} call failed: {e}") from e
+            if attempt == max_attempts:
+                raise JudgeUnavailableError(f"{provider} call failed after {attempt} attempts: {e}") from e
+            if hint is not None and hint > max_wait_s:
+                raise JudgeUnavailableError(f"{provider} asks to wait {hint:.0f}s, longer than {max_wait_s:.0f}s: {e}") from e
+            wait = max(delay, hint or 0.0)
+            print(f"judge ({provider}): attempt {attempt} failed ({e}), retrying in {wait:.1f}s")
+            time.sleep(wait)
             delay *= 2
-    return None
+    raise JudgeUnavailableError(f"{provider} call failed")  # unreachable: the loop returns or raises
 
 
 def run_judge_raw(trace: Trace, provider: str | None = None, model: str | None = None) -> dict | None:

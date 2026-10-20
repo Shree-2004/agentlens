@@ -21,7 +21,7 @@ from collections import Counter
 from dotenv import load_dotenv
 
 from console import enable_utf8_output
-from judge import PROVIDER_NAMES, JudgeUnavailableError, run_judge_checked
+from judge import PROVIDER_NAMES, JudgeQuotaExhaustedError, JudgeUnavailableError, run_judge_checked
 from schema import Trace
 
 
@@ -45,6 +45,9 @@ def main() -> None:
             result = {"run": i, "critical_step": None, "category": None, "confidence": None, "summary": None, "error": str(e)}
             runs.append(result)
             print(f"run {i}: ERROR ({e})")
+            if isinstance(e, JudgeQuotaExhaustedError):
+                print("Daily quota exhausted -- stopping; the remaining runs can't succeed today.")
+                break
             continue
         if result["status"] != "ran":
             # run_judge returned [] here, so N runs with no key "all agreed" on
