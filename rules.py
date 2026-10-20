@@ -9,6 +9,7 @@ later reasoning) is out of scope here; that's judge.py's job.
 
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 
 from schema import Finding, Trace
@@ -18,8 +19,11 @@ _ERROR_ACK_WORDS = ("error", "fail", "unable", "retry", "couldn't", "could not",
 
 
 def _args_key(tool_name: str, tool_args: dict | None) -> tuple:
-    args = tool_args or {}
-    return (tool_name, tuple(sorted(args.items())))
+    # Canonical JSON, not a tuple of items: real arguments nest
+    # ({"filters": {"year": 2024}}), and a dict inside a tuple is unhashable --
+    # that crashed diagnose() on imported traces before the judge ever ran.
+    # sort_keys makes key order irrelevant at every depth.
+    return (tool_name, json.dumps(tool_args or {}, sort_keys=True, default=str))
 
 
 def find_tool_loops(trace: Trace) -> list[Finding]:

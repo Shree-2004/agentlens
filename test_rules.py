@@ -96,8 +96,33 @@ def test_real_otel_crash() -> None:
     check("and name the cause", "ResourceExhausted" in findings[0].detail, True)
 
 
+def test_nested_tool_arguments() -> None:
+    """Imported OTel/Langfuse traces carry nested arguments. find_tool_loops
+    keyed calls on tuple(args.items()), and a dict value made that unhashable:
+    TypeError, and no diagnosis at all."""
+    print("nested tool arguments")
+    call = lambda args: Step(index=0, type="tool_call", tool_name="search", tool_args=args)  # noqa: E731
+    nested = {"q": "nobel 2024", "filters": {"year": 2024, "fields": ["chemistry"]}}
+    try:
+        findings = run_rules(trace_of(call(nested), call(nested), call(nested)))
+    except TypeError as e:
+        findings = [f"crashed: {e}"]
+    check("a loop with nested args is found, not a crash",
+          [f.category for f in findings if not isinstance(f, str)] or findings, ["tool_call_loop"])
+
+    reordered = {"filters": {"fields": ["chemistry"], "year": 2024}, "q": "nobel 2024"}
+    check("key order at any depth doesn't hide a loop",
+          [f.category for f in run_rules(trace_of(call(nested), call(reordered), call(nested)))],
+          ["tool_call_loop"])
+
+    different = {"q": "nobel 2024", "filters": {"year": 2023, "fields": ["chemistry"]}}
+    check("a different nested value is a different call",
+          run_rules(trace_of(call(nested), call(different), call(nested))), [])
+
+
 def main() -> None:
     for test in (
+        test_nested_tool_arguments,
         test_crash_on_model_call,
         test_crash_on_tool,
         test_quiet_cases,
