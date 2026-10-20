@@ -10,11 +10,43 @@ without a rewrite.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 from typing import Any, Literal, Optional
 
 StepType = Literal["reasoning", "tool_call", "tool_result", "final_answer"]
 Confidence = Literal["high", "medium", "low"]
+STEP_TYPES = ("reasoning", "tool_call", "tool_result", "final_answer")
+
+# Bounds on what a trace may be. Traces are untrusted input, and each of these
+# failed badly before: a step type the judge has no branch for was silently
+# left out of the prompt, duplicate indices made "critical step 3" ambiguous,
+# and deep nesting surfaced as a bare RecursionError from the JSON parser.
+# Generous for real runs: across every trace in this repo, the largest is 17
+# steps and ~64 KB, with tool args/results nested at most 3 deep.
+MAX_TRACE_BYTES = 20 * 1024 * 1024
+MAX_STEPS = 2000
+MAX_DEPTH = 64
+
+
+class TraceFormatError(ValueError):
+    """The input isn't a trace AgentLens can diagnose faithfully. Raised
+    instead of a KeyError deep in the pipeline -- or, worse, a quietly
+    partial diagnosis of a trajectory with steps missing from it."""
+
+
+def _check_depth(value: Any, where: str) -> None:
+    """Depth counts nested objects/arrays ({"a": 1} is 1 deep; a bare value 0).
+    Iterative, so a hostile document can't exhaust the stack here either."""
+    stack = [(value, 1)]
+    while stack:
+        node, depth = stack.pop()
+        if not isinstance(node, (dict, list)):
+            continue
+        if depth > MAX_DEPTH:
+            raise TraceFormatError(f"{where} is nested more than {MAX_DEPTH} levels deep")
+        children = node.values() if isinstance(node, dict) else node
+        stack.extend((v, depth + 1) for v in children)
 
 
 @dataclass
@@ -29,10 +61,15 @@ class Step:
 
     @staticmethod
     def from_dict(d: dict[str, Any]) -> "Step":
+        if not isinstance(d, dict):
+            raise TraceFormatError(f"a step is {type(d).__name__}, not an object")
+        if "index" not in d or "type" not in d:
+            raise TraceFormatError(f"a step is missing 'index' or 'type' (keys: {', '.join(d) or 'none'})")
         return Step(
             index=d["index"],
             type=d["type"],
-            content=d.get("content", ""),
+            # null content is common in exported logs; it means "no text", not an error
+            content=d.get("content") or "",
             tool_name=d.get("tool_name"),
             tool_args=d.get("tool_args"),
             tool_result=d.get("tool_result"),
@@ -47,12 +84,64 @@ class Trace:
 
     @staticmethod
     def from_dict(d: dict[str, Any]) -> "Trace":
-        return Trace(task=d["task"], steps=[Step.from_dict(s) for s in d.get("steps", [])])
+        if not isinstance(d, dict):
+            raise TraceFormatError(f"a trace is a JSON object, got {type(d).__name__}")
+        if not isinstance(d.get("task"), str):
+            raise TraceFormatError("trace has no 'task' string")
+        steps = d.get("steps", [])
+        if not isinstance(steps, list):
+            raise TraceFormatError(f"'steps' is {type(steps).__name__}, not a list")
+        if len(steps) > MAX_STEPS:
+            raise TraceFormatError(f"trace has {len(steps)} steps; the limit is {MAX_STEPS}")
+        trace = Trace(task=d["task"], steps=[Step.from_dict(s) for s in steps])
+        trace.validate()
+        return trace
 
     @staticmethod
     def load(path: str) -> "Trace":
+        size = os.path.getsize(path)
+        if size > MAX_TRACE_BYTES:
+            raise TraceFormatError(f"{path} is {size:,} bytes; the limit is {MAX_TRACE_BYTES:,}")
         with open(path, "r", encoding="utf-8") as f:
-            return Trace.from_dict(json.load(f))
+            try:
+                data = json.load(f)
+            except json.JSONDecodeError as e:
+                raise TraceFormatError(f"{path} is not valid JSON: {e}") from e
+            except RecursionError as e:
+                raise TraceFormatError(f"{path} is nested too deeply to parse") from e
+        return Trace.from_dict(data)
+
+    def validate(self) -> None:
+        """Check what the rules, the judge and the viewer all rely on.
+
+        Called by from_dict, and by analyze.diagnose for traces the adapters
+        build directly, so every route into a diagnosis is checked once.
+        """
+        if len(self.steps) > MAX_STEPS:
+            raise TraceFormatError(f"trace has {len(self.steps)} steps; the limit is {MAX_STEPS}")
+        previous = None
+        for position, step in enumerate(self.steps):
+            where = f"step at position {position}"
+            if not isinstance(step.index, int) or isinstance(step.index, bool):
+                raise TraceFormatError(f"{where} has index {step.index!r}, not an integer")
+            where = f"step {step.index}"
+            if previous is not None and step.index <= previous:
+                # Gaps are fine; going backwards or repeating makes "critical
+                # step N" ambiguous and the timeline order a lie.
+                raise TraceFormatError(f"{where} follows step {previous}: indices must strictly increase")
+            previous = step.index
+            if step.type not in STEP_TYPES:
+                raise TraceFormatError(f"{where} has type {step.type!r}; expected one of {', '.join(STEP_TYPES)}")
+            if not isinstance(step.content, str):
+                raise TraceFormatError(f"{where} content is {type(step.content).__name__}, not text")
+            if step.tool_name is not None and not isinstance(step.tool_name, str):
+                raise TraceFormatError(f"{where} tool_name is {type(step.tool_name).__name__}, not text")
+            if step.tool_args is not None and not isinstance(step.tool_args, dict):
+                raise TraceFormatError(f"{where} tool_args is {type(step.tool_args).__name__}, not an object")
+            if not isinstance(step.is_error, bool):
+                raise TraceFormatError(f"{where} is_error is {step.is_error!r}, not true/false")
+            _check_depth(step.tool_args, f"{where} tool_args")
+            _check_depth(step.tool_result, f"{where} tool_result")
 
 
 @dataclass

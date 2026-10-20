@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 from console import enable_utf8_output
 from judge import PROVIDER_NAMES, JudgeUnavailableError, run_judge_checked
 from rules import run_rules
-from schema import Diagnosis, Finding, Trace, rank_key
+from schema import Diagnosis, Finding, Trace, TraceFormatError, rank_key
 
 
 def _step_summary(step) -> dict:
@@ -40,6 +40,8 @@ def merge_findings(findings: list[Finding]) -> Finding | None:
 
 
 def diagnose(trace: Trace, use_judge: bool = True, provider: str | None = None) -> Diagnosis:
+    # Adapters build Trace objects directly, skipping Trace.from_dict's checks.
+    trace.validate()
     findings = run_rules(trace)
     claims: list[dict] = []
     judge_status: dict = {"status": "off", "provider": None, "model": None, "error": None}
@@ -99,9 +101,15 @@ def main() -> None:
                 json.dump(trace_to_dict(trace), f, indent=2, ensure_ascii=False)
             print(f"Saved the imported trace to {args.save_trace}")
     else:
-        trace = Trace.load(args.trace_path)
+        try:
+            trace = Trace.load(args.trace_path)
+        except (TraceFormatError, OSError) as e:
+            raise SystemExit(f"can't read trace: {e}")
 
-    diagnosis = diagnose(trace, use_judge=not args.no_judge, provider=args.provider)
+    try:
+        diagnosis = diagnose(trace, use_judge=not args.no_judge, provider=args.provider)
+    except TraceFormatError as e:
+        raise SystemExit(f"invalid trace: {e}")
 
     with open(args.output_path, "w", encoding="utf-8") as f:
         json.dump(diagnosis.to_dict(), f, indent=2)
