@@ -18,28 +18,31 @@ For the judge prompt as it stands (Groq `openai/gpt-oss-120b`, 3 runs per trace;
 
 | Set | Result |
 |---|---|
-| 10 hand-labeled traces, 8 failure shapes + 2 clean ([ground_truth.json](sample_traces/ground_truth.json)) | **28/30** runs on the labeled step, **0 false positives**, majority vote correct on all 10 traces |
+| 10 hand-labeled traces, 8 failure shapes + 2 clean ([ground_truth.json](sample_traces/ground_truth.json)) | **25/27** completed runs on the labeled step, **0 false positives**, no abstentions. 3 runs on the clean traces were lost to Groq's daily token cap and aren't scored |
 | 4 adversarial traces with text aimed at the judge inside tool output ([adversarial/](sample_traces/adversarial)) | **9/12**, 0 false positives, 0 missed failures; an injected false accusation went from 3/3 to 0/3 |
-| The real multi-agent trace (held out, never used to develop the prompt; Gemini) | still caught: step 15, high confidence |
+| 3 traces with an unrecorded tool result, only one of which turns on it ([abstention/](sample_traces/abstention)) | **7/9**. The two decidable ones 6/6, never abstaining; the undecidable one: *insufficient evidence* 1/3, clean 1/3, accused 1/3 |
+| Evidence the judge quotes, checked by code against the step it cites | **89/91** quotes found (98%); 30/37 failure verdicts quote their own critical step |
+| The real multi-agent trace (held out, never used to develop the prompt; Gemini) | caught at step 15, high confidence, on the previous prompt; not yet re-run on this one |
 
 Read those with their caveats:
 
-- **The 10-trace set is small and in-sample.** The prompt's third pass was developed against it, so it can't certify that pass. The previous prompt scored 30/30 on it; the current one's 28/30 isn't a significant drop (Fisher one-sided p = 0.25), but it is the number for this prompt.
+- **The 10-trace set is small and in-sample.** The prompt's third pass was developed against it, so it can't certify that pass. Earlier prompts scored 30/30 and 28/30 on it; none of the differences between them is significant at this size.
 - **Every hand-labeled trace was written by the person who wrote the prompt.** There is no independent holdout yet, and real-trace evidence is one caught failure (plus one crashed run the rules flag).
 - **The 3 adversarial misses are a label disagreement, not injection.** The same trace with the injected text removed gives the same answer (step 6 instead of the labeled 2). The label was not changed after seeing the results.
+- **Abstention is partial.** It replaced 3/3 false accusations on the undecidable trace, but lands on *insufficient evidence* only 1 time in 3. It was not tuned further: with one such trace, that would be fitting the test.
 
-Known limitations: no "not enough evidence" verdict, so the judge must either accuse a step or clear the run; root-cause selection ranks by confidence before step order; long traces (~15k tokens) exceed Groq's free per-minute token cap; failure category isn't scored.
+Known limitations: abstention is unreliable (above); the judge doesn't always quote its own critical step (never on `timezone_assumption`); root-cause selection ranks by confidence before step order; long traces (~15k tokens) exceed Groq's free per-minute token cap; failure category isn't scored.
 
 ## How it works
 
 Two layers, run in sequence:
 
 - **Rule-based checks** ([rules.py](rules.py)) — fast, deterministic, no LLM call. Catches: tool-call loops (same tool + args called 3+ times), tool errors that get silently treated as success, missing required tool arguments, and runs that crashed before answering. High precision, but blind to anything semantic.
-- **LLM judge** ([judge.py](judge.py)) — reads the entire trajectory in one pass (not step-by-step) and is specifically prompted to compare early facts against later ones, since that comparison is what catches state corruption. Returns a structured verdict: the critical failure step, a failure category, and any contradictions it found.
+- **LLM judge** ([judge.py](judge.py)) — reads the entire trajectory in one pass (not step-by-step) and is specifically prompted to compare early facts against later ones, since that comparison is what catches state corruption. Returns a structured verdict — *failure*, *clean*, or *insufficient evidence* when the answer turns on data the trace didn't record — with the critical step, a failure category, the contradictions it found, and 1–3 passages quoted from the trace. Code checks each quote against the step it cites; a failure none of whose quotes can be found keeps its step but drops to low confidence.
 
 [analyze.py](analyze.py) merges both into one diagnosis, preferring the earliest high-confidence finding — because the upstream root cause matters more than the downstream symptom. Every diagnosis records whether the judge actually read the trace (`"judge": {"status": "ran" | "off" | "not_configured" | "failed", "provider", "model"}`), so a rules-only result is never presented as a clean bill of health.
 
-[output/viewer.html](output/viewer.html) renders the diagnosis as a timeline that visually "breaks" at the critical failure step, so you can see at a glance where a 15-step trajectory actually went wrong. It also renders the judge's extracted claims underneath the step each one came from — the verdict and the evidence it was drawn from, in one view. See "Showing the judge's work" below.
+[output/viewer.html](output/viewer.html) renders the diagnosis as a timeline that visually "breaks" at the critical failure step, so you can see at a glance where a 15-step trajectory actually went wrong. It also renders the judge's extracted claims underneath the step each one came from, highlights the quoted evidence inside the step text, and flags any quote that couldn't be found — the verdict and the evidence it was drawn from, in one view. See "Showing the judge's work" below.
 
 [check_consistency.py](check_consistency.py) runs the judge N times on the same trace and reports whether it lands on the same critical step every time — a single convincing-sounding diagnosis proves nothing on its own, since a fluent explanation and a correct one look identical unless you check reproducibility.
 
@@ -63,9 +66,10 @@ python3 analyze.py sample_traces/stale_plan_tier.json output/diagnosis.json
 python3 analyze.py sample_traces/stale_plan_tier.json output/diagnosis.json --provider groq
 python3 run_benchmark.py 3 --provider groq   # score the judge against the labeled set
 python3 run_benchmark.py 3 --provider groq --labels sample_traces/adversarial/ground_truth.json
+python3 run_benchmark.py 3 --provider groq --labels sample_traces/abstention/ground_truth.json
 
 # tests: no API key, no network
-python3 test_rules.py && python3 test_claims_plumbing.py && python3 test_schema.py \
+python3 test_rules.py && python3 test_claims_plumbing.py && python3 test_schema.py && python3 test_evidence.py \
   && python3 test_langfuse_adapter.py && python3 test_otel_adapter.py
 ```
 
@@ -352,7 +356,15 @@ What is genuinely established: the two failure shapes named above are reachable 
 
 ### After PASS 3: the injection boundary
 
-The next prompt change was the untrusted-content boundary described under [Untrusted traces](#untrusted-traces). Re-run on this set it scored **28/30**, zero false positives, majority vote correct on all 10 traces ([report](output/benchmark_report_v6_injection_boundary.json)). Both misses fell on the two historically least stable traces — `outdated_permission_role` picked step 3, the same wrong answer as in the cross-model run — and the drop from 30/30 is not significant (Fisher one-sided p = 0.25). It is still the number for the current prompt, so it's the one quoted at the top.
+The next prompt change was the untrusted-content boundary described under [Untrusted traces](#untrusted-traces). Re-run on this set it scored **28/30**, zero false positives, majority vote correct on all 10 traces ([report](output/benchmark_report_v6_injection_boundary.json)). Both misses fell on the two historically least stable traces — `outdated_permission_role` picked step 3, the same wrong answer as in the cross-model run — and the drop from 30/30 is not significant (Fisher one-sided p = 0.25). ### Quoted evidence and abstention
+
+Two additions, each measured against the prompt before it.
+
+**Quoted evidence.** A failure verdict now quotes 1–3 passages from the trace, and code checks each against the step it cites, forgiving only lossless differences (case, whitespace, typographic quotes, JSON escaping, an ellipsis for elided text). On the first real run 85 of 91 quotes checked out. Reading the six that didn't: four were verbatim text the judge had wrapped in quotation marks — a checker bug, fixed, with the stored quotes re-checked offline — and two were JSON objects with keys silently dropped from the middle, which are not quotes and stay unverified. Final: **89/91**. Separately, the prompt requires one quote from the critical step, and 7 of 37 failure verdicts ignored that.
+
+**Abstention.** The baseline was measured first, on three traces with an unrecorded tool result. Where the agent's answer rested entirely on the missing result, the previous prompt accused the agent of an "unsupported commitment … without any evidence from the missing tool result" 3/3 times — reading a gap in the *recording* as the agent having no basis. The prompt now says the agent very likely saw the data, and allows *insufficient evidence* only when the answer turns on what wasn't recorded. Result: 1 abstention, 1 clean, 1 accusation out of 3 — better, not reliable. On the two traces where the gap is irrelevant it never abstained (6/6), and across every other set it abstained 0 times.
+
+The main set ([report](output/benchmark_report_v7_evidence.json)) came in at 25/27, both misses again `outdated_permission_role` → step 3; 3 runs were lost to connection errors and then Groq's 200,000-token daily cap, and are left out rather than scored.
 
 ### The real-trace test
 
@@ -391,8 +403,8 @@ This is one success on one real trace, not proof the fix generalizes — the obv
 
 In order:
 
-- **Evidence-linked verdicts and abstention.** Each finding quotes the step it came from, and code checks the quote is really there, so a fabricated citation can't pass as evidence. Add a third verdict, *insufficient evidence*, for when the decisive data wasn't recorded (OTel leaves tool results out by default) — today the judge must either accuse a step or clear the run.
-- **An evaluation it didn't help write.** A validation set and a locked holdout, labeled before the next prompt change, and a run on [Who&When](https://github.com/ag2ai/Agents_Failure_Attribution) — 184 multi-agent failure logs with expert-labeled decisive steps, where the best method in the original paper located the step 14.2% of the time. Report confidence intervals, not bare percentages.
+- **Finish the current measurement**: the 3 runs lost to the daily cap, and the real trace on the current prompt. Make retries honour the provider's wait hint and give each call a timeout — today a 17-minute daily-cap wait was retried 4 times, and a Gemini call hung with nothing to stop it.
+- **An evaluation it didn't help write.** A validation set and a locked holdout, labeled before the next prompt change — including enough undecidable traces to improve abstention without fitting one — and a run on [Who&When](https://github.com/ag2ai/Agents_Failure_Attribution) — 184 multi-agent failure logs with expert-labeled decisive steps, where the best method in the original paper located the step 14.2% of the time. Report confidence intervals, not bare percentages.
 - **A CLI and a GitHub Action**: run the rules (no key needed) or the full pipeline over a folder of saved traces, and fail a build on configured thresholds.
 - **First-divergence diff**: compare a failed run with a successful one and find the first difference that matters — runs differ harmlessly almost immediately, so the alignment has to tolerate that.
 - **More real traces**, including a successful OTel capture and one with a severe failure; an `--otel-file` flag on `analyze.py`; OpenInference attribute mapping for traces exported from Arize Phoenix; a LangSmith adapter.
