@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Defence in depth behind the textContent-only rendering: no external
+     scripts, no plugins, and fetch() limited to this origin. The inline
+     script still needs 'unsafe-inline', so this is not the primary guard. -->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>AgentLens — Trace Diagnosis</title>
 <style>
   :root {
@@ -328,6 +333,17 @@
     return span;
   }
 
+  // Every value from a diagnosis file goes in as text, never markup. Trace
+  // content is untrusted by definition -- tool names, tool results, and the
+  // judge's summaries (which quote them) can all carry HTML -- so this page
+  // has no innerHTML anywhere.
+  function el(tag, cls, text) {
+    const node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
   function render(diag) {
     document.getElementById("task-line").textContent = diag.task;
 
@@ -337,11 +353,11 @@
     card.className = "summary-card " + (cf ? "has-failure" : "no-failure");
 
     if (cf) {
-      card.innerHTML = `
-        <div class="label">Critical step</div>
-        <div class="headline">Step ${cf.step_index} — ${cf.category.replace(/_/g, " ")}</div>
-        <div class="meta">${cf.summary}</div>
-      `;
+      card.append(
+        el("div", "label", "Critical step"),
+        el("div", "headline", `Step ${cf.step_index} — ${String(cf.category).replace(/_/g, " ")}`),
+        el("div", "meta", cf.summary),
+      );
       const badges = document.createElement("div");
       badges.style.marginTop = "0.5rem";
       badges.appendChild(badge(cf.confidence + " confidence", cf.confidence));
@@ -353,19 +369,18 @@
       const why = { off: "run with --no-judge", not_configured: "no API key was set" }[diag.judge.status]
         || "the judge call failed: " + (diag.judge.error || "unknown error");
       card.className = "summary-card";
-      card.innerHTML = `
-        <div class="label">Result</div>
-        <div class="headline">No rule findings — judge did not run</div>
-        <div class="meta"></div>
-      `;
-      card.querySelector(".meta").textContent =
-        `${diag.trace_length} steps checked by rules only (${why}). Semantic failures such as contradictions were not checked.`;
+      card.append(
+        el("div", "label", "Result"),
+        el("div", "headline", "No rule findings — judge did not run"),
+        el("div", "meta",
+          `${diag.trace_length} steps checked by rules only (${why}). Semantic failures such as contradictions were not checked.`),
+      );
     } else {
-      card.innerHTML = `
-        <div class="label">Result</div>
-        <div class="headline">No failure found</div>
-        <div class="meta">${diag.trace_length} steps, no rule or judge findings.</div>
-      `;
+      card.append(
+        el("div", "label", "Result"),
+        el("div", "headline", "No failure found"),
+        el("div", "meta", `${diag.trace_length} steps, no rule or judge findings.`),
+      );
     }
     summary.appendChild(card);
 
@@ -445,26 +460,21 @@
         timeline.appendChild(marker);
       }
 
-      const el = document.createElement("div");
       let stateClass = "";
       if (criticalIdx !== null) {
         if (step.index === criticalIdx) stateClass = "critical";
         else if (step.index > criticalIdx) stateClass = "tainted";
         else stateClass = "ok";
       }
-      el.className = "step " + stateClass;
-      el.innerHTML = `
-        <div class="step-head">
-          <span class="step-idx">#${step.index}</span>
-          <span class="step-type">${step.type.replace(/_/g, " ")}</span>
-        </div>
-        <div class="step-text"></div>
-      `;
-      const textEl = el.querySelector(".step-text");
-      textEl.textContent = step.text;
-      if (claimsByStep.has(step.index)) el.appendChild(claimsBlock(claimsByStep.get(step.index)));
-      timeline.appendChild(el);
-      if (step.index !== criticalIdx) clampIfLong(textEl, el);
+      const stepEl = el("div", "step " + stateClass);
+      const head = el("div", "step-head");
+      head.append(el("span", "step-idx", `#${step.index}`),
+                  el("span", "step-type", String(step.type).replace(/_/g, " ")));
+      const textEl = el("div", "step-text", step.text);
+      stepEl.append(head, textEl);
+      if (claimsByStep.has(step.index)) stepEl.appendChild(claimsBlock(claimsByStep.get(step.index)));
+      timeline.appendChild(stepEl);
+      if (step.index !== criticalIdx) clampIfLong(textEl, stepEl);
     });
 
     // A claim tagged with a step that isn't in the trace still has to be
@@ -482,18 +492,13 @@
       document.getElementById("findings").style.display = "block";
       const list = document.getElementById("findings-list");
       diag.findings.forEach((f) => {
-        const row = document.createElement("div");
-        row.className = "finding-row";
-        row.innerHTML = `
-          <div class="frow-head"></div>
-          <div class="frow-summary">Step ${f.step_index} — ${f.summary}</div>
-          ${f.detail ? `<div class="frow-detail"></div>` : ""}
-        `;
-        const head = row.querySelector(".frow-head");
-        head.appendChild(badge(f.category.replace(/_/g, " "), f.confidence));
+        const row = el("div", "finding-row");
+        const head = el("div", "frow-head");
+        head.appendChild(badge(String(f.category).replace(/_/g, " "), f.confidence));
         head.appendChild(badge(f.confidence, f.confidence));
         head.appendChild(badge(f.source, f.source));
-        if (f.detail) row.querySelector(".frow-detail").textContent = f.detail;
+        row.append(head, el("div", "frow-summary", `Step ${f.step_index} — ${f.summary}`));
+        if (f.detail) row.appendChild(el("div", "frow-detail", f.detail));
         list.appendChild(row);
       });
     }
@@ -507,14 +512,19 @@
     .then(render)
     .catch((err) => {
       document.getElementById("task-line").textContent = "";
-      document.getElementById("summary").innerHTML = `
-        <div class="empty-state">
-          Couldn't load <code class="inline">${DATA_URL}</code> (${err.message}).<br><br>
-          Browsers block <code class="inline">fetch()</code> against local files opened directly.
-          Serve this folder instead, e.g. from the project root:<br><br>
-          <code class="inline">python3 -m http.server</code><br><br>
-          then open <code class="inline">http://localhost:8000/output/viewer.html</code>.
-        </div>`;
+      // DATA_URL comes from ?file=, so this message is attacker-controlled
+      // text: a crafted link used to inject markup here with no trace at all.
+      const box = el("div", "empty-state");
+      const p1 = el("p");
+      p1.append("Couldn't load ", el("code", "inline", DATA_URL), ` (${err.message}).`);
+      const p2 = el("p");
+      p2.append("Browsers block ", el("code", "inline", "fetch()"),
+                " against local files opened directly. Serve this folder instead, e.g. from the project root:");
+      const p3 = el("p");
+      p3.append(el("code", "inline", "python3 -m http.server"), " then open ",
+                el("code", "inline", "http://localhost:8000/output/viewer.html"), ".");
+      box.append(p1, p2, p3);
+      document.getElementById("summary").replaceChildren(box);
     });
 </script>
 </body>
