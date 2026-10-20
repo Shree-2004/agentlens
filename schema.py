@@ -90,6 +90,11 @@ class Diagnosis:
     # drawn from, rather than taken on the strength of one summary sentence.
     # Empty when the judge was skipped or no key was set.
     claims: list[dict[str, Any]] = field(default_factory=list)
+    # Whether the judge actually read this trace: {"status": "ran" | "off" |
+    # "not_configured" | "failed", "provider", "model", "error"}. Without it,
+    # a rules-only diagnosis with no findings is indistinguishable from a
+    # judge that checked the trace and found it clean.
+    judge: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -100,4 +105,5 @@ class Diagnosis:
             "critical_step": self.critical_step,
             "critical_finding": vars(self.critical_finding) if self.critical_finding else None,
             "claims": self.claims,
+            "judge": self.judge,
         }

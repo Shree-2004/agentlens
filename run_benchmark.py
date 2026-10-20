@@ -69,8 +69,12 @@ def main() -> None:
 
         for i in range(args.n_runs):
             try:
-                verdict = run_judge_raw(trace, provider=args.provider) or {}
-                findings = _verdict_to_findings(verdict)
+                verdict = run_judge_raw(trace, provider=args.provider)
+                if verdict is None:
+                    # `or {}` used to go here, and {} reads as "no failure":
+                    # with no key set, every clean trace scored as correct.
+                    raise SystemExit("No judge API key is set -- nothing to benchmark.")
+                findings = _verdict_to_findings(verdict, trace)
             except JudgeUnavailableError as e:
                 run_results.append({
                     "run": i + 1,

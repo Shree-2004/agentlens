@@ -21,7 +21,7 @@ from collections import Counter
 from dotenv import load_dotenv
 
 from console import enable_utf8_output
-from judge import PROVIDER_NAMES, JudgeUnavailableError, run_judge
+from judge import PROVIDER_NAMES, JudgeUnavailableError, run_judge_checked
 from schema import Trace
 
 
@@ -40,13 +40,18 @@ def main() -> None:
 
     for i in range(1, args.n_runs + 1):
         try:
-            findings = run_judge(trace, provider=args.provider)
+            result = run_judge_checked(trace, provider=args.provider)
         except JudgeUnavailableError as e:
             result = {"run": i, "critical_step": None, "category": None, "confidence": None, "summary": None, "error": str(e)}
             runs.append(result)
             print(f"run {i}: ERROR ({e})")
             continue
+        if result["status"] != "ran":
+            # run_judge returned [] here, so N runs with no key "all agreed" on
+            # no failure -- a perfect consistency score for a judge that never ran.
+            raise SystemExit("No judge API key is set -- nothing to check.")
 
+        findings = result["findings"]
         if findings:
             f = findings[0]
             result = {

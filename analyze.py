@@ -15,7 +15,7 @@ import json
 from dotenv import load_dotenv
 
 from console import enable_utf8_output
-from judge import PROVIDER_NAMES, JudgeUnavailableError, run_judge_with_claims
+from judge import PROVIDER_NAMES, JudgeUnavailableError, run_judge_checked
 from rules import run_rules
 from schema import Diagnosis, Finding, Trace, rank_key
 
@@ -42,12 +42,17 @@ def merge_findings(findings: list[Finding]) -> Finding | None:
 def diagnose(trace: Trace, use_judge: bool = True, provider: str | None = None) -> Diagnosis:
     findings = run_rules(trace)
     claims: list[dict] = []
+    judge_status: dict = {"status": "off", "provider": None, "model": None, "error": None}
     if use_judge:
         try:
-            judge_findings, claims = run_judge_with_claims(trace, provider=provider)
-            findings.extend(judge_findings)
+            result = run_judge_checked(trace, provider=provider)
+            findings.extend(result["findings"])
+            claims = result["claims"]
+            judge_status = {"status": result["status"], "provider": result["provider"],
+                            "model": result["model"], "error": None}
         except JudgeUnavailableError as e:
             print(f"judge unavailable, continuing with rules-only findings: {e}")
+            judge_status = {"status": "failed", "provider": provider, "model": None, "error": str(e)}
     findings.sort(key=lambda f: f.step_index)
 
     critical = merge_findings(findings)
@@ -59,6 +64,7 @@ def diagnose(trace: Trace, use_judge: bool = True, provider: str | None = None) 
         critical_step=critical.step_index if critical else None,
         critical_finding=critical,
         claims=claims,
+        judge=judge_status,
     )
 
 
@@ -104,8 +110,14 @@ def main() -> None:
         cf = diagnosis.critical_finding
         print(f"Critical step: {cf.step_index} ({cf.category}, {cf.confidence} confidence, via {cf.source})")
         print(cf.summary)
-    else:
+    elif diagnosis.judge["status"] == "ran":
         print("No failure found.")
+    else:
+        # Rules only see mechanical failures. Saying "no failure" here would
+        # claim a semantic check that never happened.
+        why = {"off": "--no-judge", "not_configured": "no API key set"}.get(
+            diagnosis.judge["status"], diagnosis.judge["error"])
+        print(f"No rule findings. The judge did not run ({why}), so semantic failures were not checked.")
     print(f"Wrote diagnosis to {args.output_path}")
 
 

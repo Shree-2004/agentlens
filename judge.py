@@ -24,6 +24,14 @@ class JudgeUnavailableError(Exception):
     exact kind of signal this whole tool exists to protect."""
 
 
+class MalformedVerdictError(JudgeUnavailableError):
+    """The call succeeded and returned JSON, but not a verdict the rest of
+    the pipeline can use -- has_failure missing, a critical_step that isn't
+    a step in the trace, a confidence outside the enum. A subclass so every
+    existing `except JudgeUnavailableError` still catches it, while a
+    benchmark can count malformed output separately from API failures."""
+
+
 JUDGE_SYSTEM_PROMPT = """You are diagnosing why an AI agent's run went wrong.
 
 You will be given a task and the full sequence of steps the agent took
@@ -255,6 +263,12 @@ def run_judge_raw(trace: Trace, provider: str | None = None, model: str | None =
     response couldn't be parsed.
     """
     if provider:
+        # Asking for a judge by name and not getting one is a failure, not the
+        # "judge off" state below: returning None here used to turn
+        # `--provider groq` with no GROQ_API_KEY into a quiet "No failure found."
+        env_var = _PROVIDERS[provider][0]
+        if not os.environ.get(env_var):
+            raise JudgeUnavailableError(f"--provider {provider} was requested but {env_var} is not set")
         providers_to_try = [provider]
     else:
         providers_to_try = [p for p, (env_var, _, _) in _PROVIDERS.items() if os.environ.get(env_var)]
@@ -288,8 +302,41 @@ def run_judge_raw(trace: Trace, provider: str | None = None, model: str | None =
     return verdict
 
 
-def _verdict_to_findings(verdict: dict) -> list[Finding]:
-    if not verdict.get("has_failure"):
+_CONFIDENCES = ("high", "medium", "low")
+
+
+def _validate_verdict(verdict: object, trace: Trace | None = None) -> None:
+    """Raise MalformedVerdictError unless the verdict can be trusted as one.
+
+    Parsing as JSON only proves the model returned *something*. Without this,
+    {} read as has_failure=false (a clean run), a null critical_step crashed
+    the step sort in analyze.py, and a step the trace doesn't have was
+    rendered as the root cause.
+    """
+    if not isinstance(verdict, dict):
+        raise MalformedVerdictError(f"verdict is {type(verdict).__name__}, not a JSON object")
+    if not isinstance(verdict.get("has_failure"), bool):
+        raise MalformedVerdictError(f"has_failure is {verdict.get('has_failure')!r}, not true/false")
+    claims = verdict.get("claims")
+    if claims is not None and not isinstance(claims, list):
+        raise MalformedVerdictError(f"claims is {type(claims).__name__}, not a list")
+    if not verdict["has_failure"]:
+        return
+    step = verdict.get("critical_step")
+    if not isinstance(step, int) or isinstance(step, bool):
+        raise MalformedVerdictError(f"has_failure is true but critical_step is {step!r}, not a step index")
+    if trace is not None and step not in {s.index for s in trace.steps}:
+        raise MalformedVerdictError(f"critical_step {step} is not a step in this trace")
+    confidence = verdict.get("confidence", "medium")
+    if not isinstance(confidence, str) or confidence.lower() not in _CONFIDENCES:
+        raise MalformedVerdictError(f"confidence is {confidence!r}, not one of {', '.join(_CONFIDENCES)}")
+
+
+def _verdict_to_findings(verdict: dict, trace: Trace | None = None) -> list[Finding]:
+    """Raises MalformedVerdictError on a verdict that can't be scored. Pass the
+    trace to also reject a critical_step it doesn't contain."""
+    _validate_verdict(verdict, trace)
+    if not verdict["has_failure"]:
         return []
 
     return [
@@ -297,7 +344,7 @@ def _verdict_to_findings(verdict: dict) -> list[Finding]:
             source="judge",
             step_index=verdict["critical_step"],
             category=verdict.get("category") or "state_corruption",
-            confidence=verdict.get("confidence", "medium"),
+            confidence=verdict.get("confidence", "medium").lower(),
             summary=verdict.get("summary", ""),
             detail="; ".join(verdict.get("contradictions", [])),
         )
@@ -320,10 +367,28 @@ def run_judge_with_claims(
     "the judge returned nothing," which is the whole point of the
     false-positive tests.
     """
+    result = run_judge_checked(trace, provider=provider, model=model)
+    return result["findings"], result["claims"]
+
+
+def run_judge_checked(trace: Trace, provider: str | None = None, model: str | None = None) -> dict:
+    """The judge call plus a record of whether it actually ran.
+
+    Returns {"status", "provider", "model", "findings", "claims"}, where
+    status is "ran" or "not_configured" (no key set at all -- the deliberate
+    judge-off state). Raises JudgeUnavailableError for everything else, so
+    "no findings" can only ever mean a judge read the trace.
+    """
     verdict = run_judge_raw(trace, provider=provider, model=model)
     if verdict is None:
-        return [], []
-    return _verdict_to_findings(verdict), list(verdict.get("claims") or [])
+        return {"status": "not_configured", "provider": None, "model": None, "findings": [], "claims": []}
+    return {
+        "status": "ran",
+        "provider": verdict.get("_provider"),
+        "model": verdict.get("_model"),
+        "findings": _verdict_to_findings(verdict, trace),
+        "claims": list(verdict.get("claims") or []),
+    }
 
 
 def run_judge(trace: Trace, provider: str | None = None, model: str | None = None) -> list[Finding]:

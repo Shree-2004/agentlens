@@ -255,8 +255,92 @@ def test_no_keys_means_disabled_not_broken() -> None:
                 os.environ[var] = val
 
 
+def _without_keys(fn):
+    import os
+
+    saved = {v: os.environ.pop(v, None) for v, _, _ in judge_mod._PROVIDERS.values()}
+    try:
+        return fn()
+    finally:
+        for var, val in saved.items():
+            if val is not None:
+                os.environ[var] = val
+
+
+def _raises(fn, exc) -> str | None:
+    """Name of what fn raised if it was `exc`, 'no error' / the wrong type otherwise."""
+    try:
+        fn()
+    except exc:
+        return exc.__name__
+    except Exception as e:  # noqa: BLE001 -- the wrong exception is the failure being checked
+        return f"{type(e).__name__}: {e}"
+    return "no error"
+
+
+def test_requested_provider_without_key_is_loud() -> None:
+    """--provider groq with no GROQ_API_KEY used to return None, which
+    analyze.py reported as 'No failure found.'"""
+    print("requested provider, no key")
+    got = _without_keys(lambda: _raises(lambda: judge_mod.run_judge_raw(TRACE, provider="groq"),
+                                        judge_mod.JudgeUnavailableError))
+    check("raises instead of switching the judge off", got, "JudgeUnavailableError")
+
+
+def test_malformed_verdicts_are_rejected() -> None:
+    """Valid JSON is not a valid verdict. Each of these used to be scored,
+    crash later, or render a step that doesn't exist."""
+    print("malformed verdicts")
+    bad = {
+        "empty object reads as no-failure": {},
+        "has_failure is a string": {**CLEAN_VERDICT, "has_failure": "no"},
+        "null critical_step on a failure": {**FAILURE_VERDICT, "critical_step": None},
+        "critical_step as a string": {**FAILURE_VERDICT, "critical_step": "2"},
+        "critical_step as a bool": {**FAILURE_VERDICT, "critical_step": True},
+        "critical_step not in the trace": {**FAILURE_VERDICT, "critical_step": 15},
+        "confidence outside the enum": {**FAILURE_VERDICT, "confidence": "very high"},
+        "claims not a list": {**FAILURE_VERDICT, "claims": "step 2 says free"},
+        "not an object at all": ["has_failure", True],
+    }
+    for label, verdict in bad.items():
+        check(label, _raises(lambda v=verdict: _verdict_to_findings(v, TRACE), judge_mod.MalformedVerdictError),
+              "MalformedVerdictError")
+    check("malformed is still a JudgeUnavailableError",
+          issubclass(judge_mod.MalformedVerdictError, judge_mod.JudgeUnavailableError), True)
+    check("confidence case is normalized",
+          _verdict_to_findings({**FAILURE_VERDICT, "confidence": "High"}, TRACE)[0].confidence, "high")
+    check("step range is only checked when the trace is given",
+          _verdict_to_findings({**FAILURE_VERDICT, "critical_step": 15})[0].step_index, 15)
+
+
+def test_diagnosis_records_whether_the_judge_ran() -> None:
+    """A rules-only result with no findings must not look like a clean bill
+    of health -- the diagnosis has to say the judge never read the trace."""
+    print("judge status in the diagnosis")
+    stamped = {**CLEAN_VERDICT, "_provider": "groq", "_model": "openai/gpt-oss-120b"}
+    ran = _with_stub_verdict(stamped, lambda: diagnose(TRACE, use_judge=True)).to_dict()["judge"]
+    check("ran: status", ran["status"], "ran")
+    check("ran: which judge answered", (ran["provider"], ran["model"]), ("groq", "openai/gpt-oss-120b"))
+
+    check("--no-judge: status", diagnose(TRACE, use_judge=False).judge["status"], "off")
+    check("no key at all: status",
+          _without_keys(lambda: diagnose(TRACE, use_judge=True)).judge["status"], "not_configured")
+
+    failed = _without_keys(lambda: diagnose(TRACE, use_judge=True, provider="groq")).judge
+    check("requested provider, no key: status", failed["status"], "failed")
+    check("and the reason is kept", "GROQ_API_KEY" in (failed["error"] or ""), True)
+
+    broken = {**FAILURE_VERDICT, "critical_step": None}
+    diag = _with_stub_verdict(broken, lambda: diagnose(TRACE, use_judge=True))
+    check("malformed verdict: no crash, status failed", diag.judge["status"], "failed")
+    check("malformed verdict: no judge finding invented", diag.critical_finding, None)
+
+
 def main() -> None:
     for test in (
+        test_requested_provider_without_key_is_loud,
+        test_malformed_verdicts_are_rejected,
+        test_diagnosis_records_whether_the_judge_ran,
         test_claims_returned_alongside_findings,
         test_claims_survive_a_clean_verdict,
         test_run_judge_signature_unchanged,

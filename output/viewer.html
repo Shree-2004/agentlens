@@ -347,6 +347,19 @@
       badges.appendChild(badge(cf.confidence + " confidence", cf.confidence));
       badges.appendChild(badge(cf.source, cf.source));
       card.appendChild(badges);
+    } else if (diag.judge && diag.judge.status && diag.judge.status !== "ran") {
+      // Rules alone can't call a trace clean: they never look at meaning.
+      // Older diagnosis files have no judge field and keep the old wording.
+      const why = { off: "run with --no-judge", not_configured: "no API key was set" }[diag.judge.status]
+        || "the judge call failed: " + (diag.judge.error || "unknown error");
+      card.className = "summary-card";
+      card.innerHTML = `
+        <div class="label">Result</div>
+        <div class="headline">No rule findings — judge did not run</div>
+        <div class="meta"></div>
+      `;
+      card.querySelector(".meta").textContent =
+        `${diag.trace_length} steps checked by rules only (${why}). Semantic failures such as contradictions were not checked.`;
     } else {
       card.innerHTML = `
         <div class="label">Result</div>
