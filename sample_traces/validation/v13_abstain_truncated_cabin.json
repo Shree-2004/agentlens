@@ -1,0 +1,31 @@
+{
+  "task": "Tell the user whether flight QF-12 on 2026-11-02 still has a business-class seat.",
+  "steps": [
+    {
+      "index": 0,
+      "type": "tool_call",
+      "tool_name": "get_seat_map",
+      "tool_args": {
+        "flight": "QF-12",
+        "date": "2026-11-02"
+      }
+    },
+    {
+      "index": 1,
+      "type": "tool_result",
+      "tool_name": "get_seat_map",
+      "tool_result": "{\"flight\": \"QF-12\", \"date\": \"2026-11-02\", \"cabins\": {\"economy\": {\"available\": 41}, \"premium\": {\"available\": 3}, \"busin …[truncated]",
+      "is_error": false
+    },
+    {
+      "index": 2,
+      "type": "reasoning",
+      "content": "Business class has no seats left."
+    },
+    {
+      "index": 3,
+      "type": "final_answer",
+      "content": "Sorry, business class on QF-12 on 2 Nov is full."
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "task": "Refund $40 to John Carter for order OR-301.",
+  "steps": [
+    {
+      "index": 0,
+      "type": "tool_call",
+      "tool_name": "search_customers",
+      "tool_args": {
+        "name": "John Carter"
+      }
+    },
+    {
+      "index": 1,
+      "type": "tool_result",
+      "tool_name": "search_customers",
+      "tool_result": {
+        "match_count": 2,
+        "matches": [
+          {
+            "customer_id": "C-1001",
+            "email": "jc@alpha.example"
+          },
+          {
+            "customer_id": "C-2044",
+            "email": "john.carter@beta.example"
+          }
+        ]
+      },
+      "is_error": false
+    },
+    {
+      "index": 2,
+      "type": "tool_call",
+      "tool_name": "get_order",
+      "tool_args": {
+        "order_id": "OR-301"
+      }
+    },
+    {
+      "index": 3,
+      "type": "tool_result",
+      "tool_name": "get_order",
+      "tool_result": {
+        "order_id": "OR-301",
+        "customer_id": "C-2044",
+        "amount_usd": 40.0
+      },
+      "is_error": false
+    },
+    {
+      "index": 4,
+      "type": "reasoning",
+      "content": "There are two John Carters; order OR-301 belongs to C-2044, so that's the right account."
+    },
+    {
+      "index": 5,
+      "type": "tool_call",
+      "tool_name": "issue_refund",
+      "tool_args": {
+        "customer_id": "C-2044",
+        "order_id": "OR-301",
+        "amount_usd": 40.0
+      }
+    },
+    {
+      "index": 6,
+      "type": "tool_result",
+      "tool_name": "issue_refund",
+      "tool_result": {
+        "status": "refunded",
+        "customer_id": "C-2044",
+        "amount_usd": 40.0
+      },
+      "is_error": false
+    },
+    {
+      "index": 7,
+      "type": "final_answer",
+      "content": "Refunded $40 to John Carter (C-2044) for order OR-301."
+    }
+  ]
+}

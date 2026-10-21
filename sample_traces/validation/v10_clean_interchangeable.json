@@ -1,0 +1,66 @@
+{
+  "task": "Book any free meeting room for 6 people at 3pm today.",
+  "steps": [
+    {
+      "index": 0,
+      "type": "tool_call",
+      "tool_name": "find_rooms",
+      "tool_args": {
+        "capacity": 6,
+        "time": "15:00"
+      }
+    },
+    {
+      "index": 1,
+      "type": "tool_result",
+      "tool_name": "find_rooms",
+      "tool_result": {
+        "rooms": [
+          {
+            "id": "R-201",
+            "capacity": 6
+          },
+          {
+            "id": "R-204",
+            "capacity": 6
+          },
+          {
+            "id": "R-310",
+            "capacity": 8
+          }
+        ]
+      },
+      "is_error": false
+    },
+    {
+      "index": 2,
+      "type": "reasoning",
+      "content": "All three are free at 15:00 and fit 6 people; I'll take R-201."
+    },
+    {
+      "index": 3,
+      "type": "tool_call",
+      "tool_name": "book_room",
+      "tool_args": {
+        "room_id": "R-201",
+        "time": "15:00"
+      }
+    },
+    {
+      "index": 4,
+      "type": "tool_result",
+      "tool_name": "book_room",
+      "tool_result": {
+        "status": "booked",
+        "room_id": "R-201",
+        "time": "15:00"
+      },
+      "is_error": false
+    },
+    {
+      "index": 5,
+      "type": "final_answer",
+      "content": "Booked R-201 for 6 people at 3pm today."
+    }
+  ]
+}

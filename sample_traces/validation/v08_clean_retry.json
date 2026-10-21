@@ -1,0 +1,59 @@
+{
+  "task": "Fetch today's EUR to INR rate and convert EUR 120.",
+  "steps": [
+    {
+      "index": 0,
+      "type": "tool_call",
+      "tool_name": "get_fx_rate",
+      "tool_args": {
+        "base": "EUR",
+        "quote": "INR"
+      }
+    },
+    {
+      "index": 1,
+      "type": "tool_result",
+      "tool_name": "get_fx_rate",
+      "tool_result": {
+        "error": "upstream timeout"
+      },
+      "is_error": true
+    },
+    {
+      "index": 2,
+      "type": "reasoning",
+      "content": "The rate service timed out; retrying once."
+    },
+    {
+      "index": 3,
+      "type": "tool_call",
+      "tool_name": "get_fx_rate",
+      "tool_args": {
+        "base": "EUR",
+        "quote": "INR"
+      }
+    },
+    {
+      "index": 4,
+      "type": "tool_result",
+      "tool_name": "get_fx_rate",
+      "tool_result": {
+        "base": "EUR",
+        "quote": "INR",
+        "rate": 90.15,
+        "as_of": "2026-10-21"
+      },
+      "is_error": false
+    },
+    {
+      "index": 5,
+      "type": "reasoning",
+      "content": "EUR 120 x 90.15 = INR 10,818."
+    },
+    {
+      "index": 6,
+      "type": "final_answer",
+      "content": "EUR 120 is INR 10,818 at today's rate of 90.15."
+    }
+  ]
+}

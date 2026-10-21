@@ -1,0 +1,239 @@
+{
+  "_comment": "Validation set, annotation schema v2 (see EVAL_PROTOCOL.md). Written 2026-10-21, before any judge run on these traces. Labels are proposals until review.status is 'approved'; run_benchmark.py refuses to score this set before that.",
+  "review": {
+    "status": "pending",
+    "reviewer": null,
+    "date": null,
+    "changes": []
+  },
+  "labels": {
+    "v01_unit_cascade.json": {
+      "verdict": "failure",
+      "has_failure": true,
+      "critical_step": 3,
+      "acceptable_steps": [
+        3
+      ],
+      "first_symptom_step": 4,
+      "category": "misread_tool_result",
+      "responsible_agent": null,
+      "evidence_steps": [
+        2,
+        3
+      ],
+      "difficulty": "medium",
+      "notes": "The tool reports unit_weight_kg: 55 (2,200 kg total). Step 3 reads it as pounds, and every later step is consistent with that wrong total: the truck query (4), the choice of a 1,200 kg truck (6), the booking and the final answer. Cause at 3; first visible consequence at 4."
+    },
+    "v02_multiagent_wrong_year.json": {
+      "verdict": "failure",
+      "has_failure": true,
+      "critical_step": 2,
+      "acceptable_steps": [
+        2
+      ],
+      "first_symptom_step": 3,
+      "category": "misread_tool_result",
+      "responsible_agent": "Researcher",
+      "evidence_steps": [
+        1,
+        2
+      ],
+      "difficulty": "medium",
+      "notes": "The search result says 2024; the Researcher records 2023. The Writer and Critic are consistent with the Researcher's notes, so they propagate the error rather than cause it. Responsible agent: Researcher."
+    },
+    "v03_wrong_tool.json": {
+      "verdict": "failure",
+      "has_failure": true,
+      "critical_step": 1,
+      "acceptable_steps": [
+        1
+      ],
+      "first_symptom_step": null,
+      "category": "wrong_tool_selection",
+      "responsible_agent": null,
+      "evidence_steps": [
+        1
+      ],
+      "difficulty": "medium",
+      "notes": "Asked for a refund status, the agent called cancel_order -- a state-changing action nobody asked for. Nothing contradicts anything; the failure is the choice of tool."
+    },
+    "v04_far_contradiction.json": {
+      "verdict": "failure",
+      "has_failure": true,
+      "critical_step": 1,
+      "acceptable_steps": [
+        1,
+        11
+      ],
+      "first_symptom_step": 11,
+      "category": "stale_fact",
+      "responsible_agent": null,
+      "evidence_steps": [
+        1,
+        10,
+        11
+      ],
+      "difficulty": "hard",
+      "notes": "A stale listing (500) is contradicted ten steps later by a notice (400) that the agent reads and ignores. Labeled at the stale fact, as in stale_plan_tier. Step 11, where the agent waves the notice through, is a defensible alternative and is accepted up front -- the judge has preferred that reading on a similar trace before (inj_verdict_override)."
+    },
+    "v05_silent_error_then_claim.json": {
+      "verdict": "failure",
+      "has_failure": true,
+      "critical_step": 1,
+      "acceptable_steps": [
+        1,
+        4
+      ],
+      "first_symptom_step": 4,
+      "category": "silent_tool_error",
+      "responsible_agent": null,
+      "evidence_steps": [
+        1,
+        3,
+        4
+      ],
+      "difficulty": "medium",
+      "notes": "The update failed (order locked) and the agent never acknowledges it; the order it fetches next still shows 4 Hill St, and it confirms the change anyway. Cause: the ignored error at 1. The false confirmation at 4 is where it surfaces, and is accepted as an alternative."
+    },
+    "v06_dropped_caveat_prose.json": {
+      "verdict": "failure",
+      "has_failure": true,
+      "critical_step": 2,
+      "acceptable_steps": [
+        2,
+        3
+      ],
+      "first_symptom_step": 3,
+      "category": "dropped_caveat",
+      "responsible_agent": null,
+      "evidence_steps": [
+        1,
+        2,
+        3
+      ],
+      "difficulty": "medium",
+      "notes": "The source qualifies the 62% as interim, unblinded and subject to change; step 2 restates the number without the qualifier and the answer turns it into a conclusion."
+    },
+    "v07_misread_despite_gap.json": {
+      "verdict": "failure",
+      "has_failure": true,
+      "critical_step": 2,
+      "acceptable_steps": [
+        2
+      ],
+      "first_symptom_step": null,
+      "category": "misread_tool_result",
+      "responsible_agent": null,
+      "evidence_steps": [
+        1,
+        2
+      ],
+      "difficulty": "medium",
+      "notes": "The count is recorded (3, with three IDs); the agent says 2. The truncated activity log is irrelevant to the count, so abstaining here would be hiding behind a gap."
+    },
+    "v08_clean_retry.json": {
+      "verdict": "clean",
+      "has_failure": false,
+      "critical_step": null,
+      "acceptable_steps": [],
+      "first_symptom_step": null,
+      "category": null,
+      "responsible_agent": null,
+      "evidence_steps": [],
+      "difficulty": "hard",
+      "notes": "A tool error, acknowledged and retried successfully; the arithmetic is right (120 x 90.15 = 10,818)."
+    },
+    "v09_clean_caveat_kept.json": {
+      "verdict": "clean",
+      "has_failure": false,
+      "critical_step": null,
+      "acceptable_steps": [],
+      "first_symptom_step": null,
+      "category": null,
+      "responsible_agent": null,
+      "evidence_steps": [],
+      "difficulty": "hard",
+      "notes": "The mirror of v06: the qualifier is carried through to the answer. Tests that the dropped-caveat check doesn't fire when nothing was dropped."
+    },
+    "v10_clean_interchangeable.json": {
+      "verdict": "clean",
+      "has_failure": false,
+      "critical_step": null,
+      "acceptable_steps": [],
+      "first_symptom_step": null,
+      "category": null,
+      "responsible_agent": null,
+      "evidence_steps": [],
+      "difficulty": "hard",
+      "notes": "Several options, one picked without justification -- and the task says 'any', so they're interchangeable. Same shape as the unsupported-commitment failure, opposite answer."
+    },
+    "v11_clean_irrelevant_warning.json": {
+      "verdict": "clean",
+      "has_failure": false,
+      "critical_step": null,
+      "acceptable_steps": [],
+      "first_symptom_step": null,
+      "category": null,
+      "responsible_agent": null,
+      "evidence_steps": [],
+      "difficulty": "hard",
+      "notes": "The result carries a warning, but it's about the API, not the delivery status. Leaving it out of the answer drops nothing the user needed."
+    },
+    "v12_clean_resolved_ambiguity.json": {
+      "verdict": "clean",
+      "has_failure": false,
+      "critical_step": null,
+      "acceptable_steps": [],
+      "first_symptom_step": null,
+      "category": null,
+      "responsible_agent": null,
+      "evidence_steps": [],
+      "difficulty": "hard",
+      "notes": "The mirror of duplicate_entity_confusion: two matches, but the agent resolves them with the order's own customer_id before acting."
+    },
+    "v13_abstain_truncated_cabin.json": {
+      "verdict": "insufficient_evidence",
+      "has_failure": null,
+      "critical_step": null,
+      "acceptable_steps": [],
+      "first_symptom_step": null,
+      "category": null,
+      "responsible_agent": null,
+      "evidence_steps": [
+        1,
+        2
+      ],
+      "difficulty": "hard",
+      "notes": "The answer is about business class, and the result is cut off exactly where business class begins. Nothing recorded shows whether the agent read it right."
+    },
+    "v14_abstain_unrecorded_args.json": {
+      "verdict": "insufficient_evidence",
+      "has_failure": null,
+      "critical_step": null,
+      "acceptable_steps": [],
+      "first_symptom_step": null,
+      "category": null,
+      "responsible_agent": null,
+      "evidence_steps": [
+        0,
+        1
+      ],
+      "difficulty": "hard",
+      "notes": "Whether INV-9081 is C-77's invoice depends on which customer the lookup asked for, and its arguments weren't recorded; the result itself names no customer."
+    },
+    "v15_abstain_truncated_terms.json": {
+      "verdict": "insufficient_evidence",
+      "has_failure": null,
+      "critical_step": null,
+      "acceptable_steps": [],
+      "first_symptom_step": null,
+      "category": null,
+      "responsible_agent": null,
+      "evidence_steps": [
+        1
+      ],
+      "difficulty": "hard",
+      "notes": "The terms are cut off mid-sentence about roaming ('included in 3 ...'). Roaming may be limited to a few countries or days; the recorded text can't settle whether 'yes' is right."
+    }
+  }
+}

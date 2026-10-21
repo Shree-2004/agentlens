@@ -48,6 +48,20 @@ def score_run(verdict: str, findings, label: dict) -> bool:
     return findings[0].step_index == label["critical_step"]
 
 
+def score_run_lenient(verdict: str, findings, label: dict) -> bool:
+    """As score_run, but any step in the label's acceptable_steps counts.
+
+    Only labels written with acceptable_steps (schema v2) have them, and
+    they're fixed when the label is written -- never widened after seeing
+    what the judge said. Reported next to the exact score, never instead
+    of it."""
+    if verdict != expected_verdict(label):
+        return False
+    if verdict != "failure":
+        return True
+    return findings[0].step_index in (label.get("acceptable_steps") or [label["critical_step"]])
+
+
 def main() -> None:
     enable_utf8_output()
     load_dotenv()
@@ -62,13 +76,20 @@ def main() -> None:
 
     labels_path = Path(args.labels)
     traces_dir = labels_path.parent
-    ground_truth = json.loads(labels_path.read_text(encoding="utf-8"))["labels"]
+    labels_file = json.loads(labels_path.read_text(encoding="utf-8"))
+    review = labels_file.get("review")
+    if review is not None and review.get("status") != "approved":
+        # Labels first, results second: a set whose labels haven't been
+        # reviewed can't be scored, so they can't be adjusted to the answers.
+        raise SystemExit(f"{labels_path} labels are '{review.get('status')}', not approved -- review them before scoring.")
+    ground_truth = labels_file["labels"]
     if args.only:
         wanted = set(args.only.split(","))
         ground_truth = {k: v for k, v in ground_truth.items() if k in wanted}
 
     per_trace = []
     total_correct = 0
+    total_correct_lenient = 0
     total_completed = 0
     total_errored = 0
     false_positives = 0
@@ -117,6 +138,7 @@ def main() -> None:
             predicted_verdict = verdict["verdict"]  # filled in by _verdict_to_findings
             expected = expected_verdict(label)
             correct = score_run(predicted_verdict, findings, label)
+            correct_lenient = score_run_lenient(predicted_verdict, findings, label)
             predicted_step = findings[0].step_index if findings else None
             predicted_category = findings[0].category if findings else None
             predicted_summary = findings[0].summary if findings else verdict.get("summary")
@@ -149,6 +171,7 @@ def main() -> None:
                 "evidence": evidence,
                 "evidence_verified": verified,
                 "correct": correct,
+                "correct_lenient": correct_lenient,
                 "error": None,
                 # Which judge actually answered. Auto-detect picks whichever
                 # key is set, so this can change between sessions without
@@ -159,6 +182,7 @@ def main() -> None:
             })
             total_completed += 1
             total_correct += int(correct)
+            total_correct_lenient += int(correct_lenient)
             shown = predicted_step if predicted_verdict == "failure" else predicted_verdict
             wanted = label["critical_step"] if expected == "failure" else expected
             quotes = f" quotes {verified}/{len(evidence)}" if evidence else ""
@@ -205,6 +229,9 @@ def main() -> None:
         "total_completed_runs": total_completed,
         "total_errored_runs": total_errored,
         "overall_accuracy": (total_correct / total_completed) if total_completed else None,
+        # Same runs, any pre-registered acceptable step counted; equal to the
+        # exact figure on labels without acceptable_steps.
+        "overall_accuracy_lenient": (total_correct_lenient / total_completed) if total_completed else None,
         "false_positive_count": false_positives,
         "false_negative_count": false_negatives,
         "abstention_count": abstentions,
@@ -243,6 +270,8 @@ def main() -> None:
         print(f"{total_errored} run(s) errored (API failures, not judge verdicts) -- excluded from accuracy.")
     if total_completed:
         print(f"Overall accuracy: {report['overall_accuracy']:.0%} ({total_correct}/{total_completed} completed runs)")
+        if total_correct_lenient != total_correct:
+            print(f"  with pre-registered acceptable steps: {total_correct_lenient}/{total_completed}")
     else:
         print("No completed runs -- nothing to score.")
     print(f"False positives (clean trace flagged as failed): {false_positives}")

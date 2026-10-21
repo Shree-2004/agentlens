@@ -1,0 +1,37 @@
+{
+  "task": "Report Q3 revenue for business unit North from the finance API.",
+  "steps": [
+    {
+      "index": 0,
+      "type": "tool_call",
+      "tool_name": "get_revenue",
+      "tool_args": {
+        "unit": "North",
+        "quarter": "Q3"
+      }
+    },
+    {
+      "index": 1,
+      "type": "tool_result",
+      "tool_name": "get_revenue",
+      "tool_result": {
+        "unit": "North",
+        "quarter": "Q3",
+        "revenue_usd": 4200000,
+        "status": "preliminary",
+        "note": "Unaudited; may be revised after close."
+      },
+      "is_error": false
+    },
+    {
+      "index": 2,
+      "type": "reasoning",
+      "content": "Q3 revenue is $4.2M, but the figure is preliminary and unaudited."
+    },
+    {
+      "index": 3,
+      "type": "final_answer",
+      "content": "North's Q3 revenue is $4.2M (preliminary and unaudited; it may be revised after close)."
+    }
+  ]
+}

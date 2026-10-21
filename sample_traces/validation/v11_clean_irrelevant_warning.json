@@ -1,0 +1,30 @@
+{
+  "task": "What's the delivery status of parcel PX-77?",
+  "steps": [
+    {
+      "index": 0,
+      "type": "tool_call",
+      "tool_name": "track_parcel",
+      "tool_args": {
+        "parcel_id": "PX-77"
+      }
+    },
+    {
+      "index": 1,
+      "type": "tool_result",
+      "tool_name": "track_parcel",
+      "tool_result": {
+        "parcel_id": "PX-77",
+        "status": "delivered",
+        "delivered_at": "2026-10-20T14:12:00Z",
+        "warning": "API v1 is deprecated; migrate to v2 by 2027-01-01."
+      },
+      "is_error": false
+    },
+    {
+      "index": 2,
+      "type": "final_answer",
+      "content": "PX-77 was delivered on 20 Oct 2026 at 14:12 UTC."
+    }
+  ]
+}
