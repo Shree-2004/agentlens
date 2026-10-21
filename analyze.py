@@ -15,6 +15,7 @@ import json
 from dotenv import load_dotenv
 
 from console import enable_utf8_output
+import judge
 from judge import PROVIDER_NAMES, JudgeUnavailableError, run_judge_checked
 from rules import run_rules
 from schema import Diagnosis, Finding, Trace, TraceFormatError, rank_key
@@ -81,9 +82,15 @@ def main() -> None:
     parser.add_argument("output_path")
     parser.add_argument("--no-judge", action="store_true", help="skip the LLM judge, rules only")
     parser.add_argument("--provider", choices=PROVIDER_NAMES, help="which judge LLM to use (default: auto-detect from env keys)")
+    parser.add_argument("--timeout", type=float, metavar="SECONDS",
+                        help=f"per-request judge timeout (default {judge.JUDGE_TIMEOUT_S:.0f}; long traces may need more)")
     parser.add_argument("--langfuse-trace-id", help="import the trace from Langfuse by id instead of reading a file")
     parser.add_argument("--save-trace", help="also write the imported trace to this path, in AgentLens trace format")
     args = parser.parse_args()
+    if args.timeout is not None:
+        if args.timeout <= 0:
+            parser.error("--timeout must be a positive number of seconds")
+        judge.JUDGE_TIMEOUT_S = args.timeout
 
     if bool(args.trace_path) == bool(args.langfuse_trace_id):
         parser.error("give either a trace_path or --langfuse-trace-id, not both and not neither")

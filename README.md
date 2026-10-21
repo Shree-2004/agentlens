@@ -22,7 +22,7 @@ For the judge prompt as it stands (Groq `openai/gpt-oss-120b`, 3 runs per trace;
 | 4 adversarial traces with text aimed at the judge inside tool output ([adversarial/](sample_traces/adversarial)) | **9/12**, 0 false positives, 0 missed failures; an injected false accusation went from 3/3 to 0/3 |
 | 3 traces with an unrecorded tool result, only one of which turns on it ([abstention/](sample_traces/abstention)) | **7/9**. The two decidable ones 6/6, never abstaining; the undecidable one: *insufficient evidence* 1/3, clean 1/3, accused 1/3 |
 | Evidence the judge quotes, checked by code against the step it cites | **89/91** quotes found (98%); 30/37 failure verdicts quote their own critical step |
-| The real multi-agent trace (held out, never used to develop the prompt; Gemini) | caught at step 15, high confidence, on the previous prompt; not yet re-run on this one |
+| The real multi-agent trace (held out, never used to develop the prompt; Gemini) | caught at step 15, high confidence; both quotes verified, and they are the two sides of the contradiction (step 14: the prize *was* awarded; step 15: "have not yet been announced") |
 
 Read those with their caveats:
 
@@ -87,7 +87,7 @@ Three are supported, and the judge picks whichever key is set (in the order abov
 
 **Gemini's 20/day cap is the single fact that shaped all the recorded data in this repo.** The full benchmark is 10 traces × 3 runs = 30 calls, which doesn't fit in one day — which is why the results below were gathered in fragments across many sessions, why so many runs show as errored, and why `output/benchmark.html` had to be built to merge the pieces. Groq was added to lift that constraint; on it or Anthropic the benchmark finishes in one sitting.
 
-**Retries fix only what a retry can fix.** Every request has a 180-second timeout, and the SDKs' own retries are off, so one policy decides. Per-minute rate limits, overload, dropped connections and timeouts are retried, waiting as long as the provider asks (Retry-After, or "try again in …" in the message) when that's longer than the backoff. A wait over 90 seconds, or any other error, fails at once with the provider's reason. A **daily** quota (Groq's 200,000 tokens/day, Gemini's 20 requests/day) is never retried, and `run_benchmark.py` stops on it, reporting the remaining runs as *not attempted* rather than as errors. Each of those rules came from a real run: a 17-minute wait retried 4 times, a dropped connection ending a run on its first occurrence, a Gemini call hanging with no timeout, and a benchmark recording every run after the daily cap as an error.
+**Retries fix only what a retry can fix.** Every request has a timeout — 180 seconds by default; raise it for long traces with `analyze.py --timeout 420` or `AGENTLENS_JUDGE_TIMEOUT_S` — and the SDKs' own retries are off, so one policy decides. Per-minute rate limits, overload, dropped connections and timeouts are retried, waiting as long as the provider asks (Retry-After, or "try again in …" in the message) when that's longer than the backoff. A wait over 90 seconds, or any other error, fails at once with the provider's reason. A **daily** quota (Groq's 200,000 tokens/day, Gemini's 20 requests/day) is never retried, and `run_benchmark.py` stops on it, reporting the remaining runs as *not attempted* rather than as errors. Each of those rules came from a real run: a 17-minute wait retried 4 times, a dropped connection ending a run on its first occurrence, a Gemini call hanging with no timeout, and a benchmark recording every run after the daily cap as an error.
 
 **Which judge answered is recorded.** Accuracy from two different models is not one measurement, so `judge.py` stamps `_provider` and `_model` on every verdict, `run_benchmark.py` rolls those into a `judges` array plus a `mixed_judges` flag, and it prints a warning rather than presenting a blended score as a single number. Pass `--provider` explicitly for benchmark runs — auto-detect picks whatever key happens to be set, so the judge can otherwise change between sessions without anyone deciding to change it.
 
@@ -405,7 +405,6 @@ This is one success on one real trace, not proof the fix generalizes — the obv
 
 In order:
 
-- **Re-run the real trace on the current prompt**, now that every call has a timeout.
 - **An evaluation it didn't help write.** A validation set and a locked holdout, labeled before the next prompt change — including enough undecidable traces to improve abstention without fitting one — and a run on [Who&When](https://github.com/ag2ai/Agents_Failure_Attribution) — 184 multi-agent failure logs with expert-labeled decisive steps, where the best method in the original paper located the step 14.2% of the time. Report confidence intervals, not bare percentages.
 - **A CLI and a GitHub Action**: run the rules (no key needed) or the full pipeline over a folder of saved traces, and fail a build on configured thresholds.
 - **First-divergence diff**: compare a failed run with a successful one and find the first difference that matters — runs differ harmlessly almost immediately, so the alignment has to tolerate that.

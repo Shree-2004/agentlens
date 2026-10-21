@@ -185,8 +185,61 @@ def test_benchmark_stops_on_daily_quota() -> None:
     check("the other 28 are not attempted, not errors", report["runs_not_attempted"], 28)
 
 
+def test_configurable_timeout() -> None:
+    """The real ~15k-token trace outgrew the 180 s default on Gemini."""
+    print("timeout")
+    saved = os.environ.get("AGENTLENS_JUDGE_TIMEOUT_S")
+
+    def from_env(value):
+        if value is None:
+            os.environ.pop("AGENTLENS_JUDGE_TIMEOUT_S", None)
+        else:
+            os.environ["AGENTLENS_JUDGE_TIMEOUT_S"] = value
+        try:
+            return judge_mod._timeout_from_env()
+        except ValueError:
+            return "ValueError"
+
+    try:
+        check("default when unset", from_env(None), 180.0)
+        check("set in seconds", from_env("420"), 420.0)
+        check("blank means default", from_env("  "), 180.0)
+        check("not a number is an error, not a silent default", from_env("7min"), "ValueError")
+        check("zero is an error", from_env("0"), "ValueError")
+    finally:
+        if saved is None:
+            os.environ.pop("AGENTLENS_JUDGE_TIMEOUT_S", None)
+        else:
+            os.environ["AGENTLENS_JUDGE_TIMEOUT_S"] = saved
+
+    captured = {}
+
+    class _Groq:
+        def __init__(self, api_key=None, **options):
+            captured.update(options)
+            self.chat = types.SimpleNamespace(completions=types.SimpleNamespace(
+                create=lambda **kw: types.SimpleNamespace(
+                    choices=[types.SimpleNamespace(message=types.SimpleNamespace(content="{}"))])))
+
+    stub = types.ModuleType("groq")
+    stub.Groq = _Groq
+    saved_module, saved_timeout = sys.modules.get("groq"), judge_mod.JUDGE_TIMEOUT_S
+    sys.modules["groq"] = stub
+    judge_mod.JUDGE_TIMEOUT_S = 420.0  # what analyze.py --timeout 420 does
+    try:
+        judge_mod._call_groq("p", "k", "m")
+    finally:
+        judge_mod.JUDGE_TIMEOUT_S = saved_timeout
+        if saved_module is None:
+            sys.modules.pop("groq", None)
+        else:
+            sys.modules["groq"] = saved_module
+    check("a changed timeout reaches the client at call time", captured.get("timeout"), 420.0)
+
+
 def main() -> None:
-    for test in (test_classification, test_wait_hints, test_retry_policy, test_benchmark_stops_on_daily_quota):
+    for test in (test_classification, test_wait_hints, test_retry_policy, test_benchmark_stops_on_daily_quota,
+                 test_configurable_timeout):
         test()
 
     print()

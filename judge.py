@@ -338,7 +338,26 @@ def _call_groq(
 # this project's benchmark had to be run in fragments across many sessions;
 # Groq's free tier is orders of magnitude larger, so it goes ahead of Gemini
 # as the default free option.
-JUDGE_TIMEOUT_S = 180.0  # per request; long real traces on a reasoning model take a while
+def _timeout_from_env(default: float = 180.0) -> float:
+    """AGENTLENS_JUDGE_TIMEOUT_S, if set to a positive number of seconds.
+    A bad value is an error, not a silent fall back to the default."""
+    raw = os.environ.get("AGENTLENS_JUDGE_TIMEOUT_S")
+    if raw is None or not raw.strip():
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        raise ValueError(f"AGENTLENS_JUDGE_TIMEOUT_S={raw!r} is not a number of seconds") from None
+    if value <= 0:
+        raise ValueError(f"AGENTLENS_JUDGE_TIMEOUT_S={raw!r} must be positive")
+    return value
+
+
+# Per request. 180 s covers the synthetic traces with room to spare. The real
+# ~15k-token trace on Gemini has taken close to that under load (one 504 at
+# 180 s, then a 177 s success through three 503 retries), so long traces can
+# raise it: analyze.py --timeout, or the env var.
+JUDGE_TIMEOUT_S = _timeout_from_env()
 
 _PROVIDERS = {
     "anthropic": ("ANTHROPIC_API_KEY", "claude-sonnet-5", _call_anthropic),
